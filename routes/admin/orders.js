@@ -1,5 +1,6 @@
 const express = require('express');
 const Order = require('../../models/orders'); // Assuming you have an Order model
+const Product = require('../../models/products');
 const customResponse = require('../../utils/customResponse');
 const generateId = require('../../utils/generateId');
 const router = express.Router();
@@ -68,6 +69,23 @@ router.get('/:id', async function (req, res, next) {
         res.successResponse(order, 'Fetched order successfully');
     } catch (err) {
         res.errorResponse('Failed to fetch order', 500, {}, { error: err.message });
+    }
+});
+
+/* POST get products by IDs */
+router.post('/products/byIds', async (req, res) => {
+    const { ids } = req.body;
+
+    if (!Array.isArray(ids)) {
+        return res.errorResponse('Invalid input, expected an array of IDs', 400);
+    }
+
+    try {
+        const products = await Product.find({ _id: { $in: ids } });
+        res.successResponse(products, 'Fetched products successfully');
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        res.errorResponse('Internal server error', 500, {}, { error: error.message });
     }
 });
 
