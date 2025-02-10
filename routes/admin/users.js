@@ -8,14 +8,61 @@ var router = express.Router();
 router.use(customResponse);
 
 /* GET all users from database. */
+// router.get('/all', async function (req, res, next) {
+//   try {
+//     const users = await User.find();
+//     res.successResponse(users, 'Fetched all users successfully');
+//   } catch (err) {
+//     res.errorResponse('Failed to fetch users', 500, {}, { error: err.message });
+//   }
+// });
 router.get('/all', async function (req, res, next) {
   try {
-    const users = await User.find();
-    res.successResponse(users, 'Fetched all users successfully');
+      const { page = 1, limit = 3, email, name, startDate, endDate, search } = req.query;
+
+      const filters = {};
+
+      if (email) {
+          filters.email = email;
+      }
+
+      if (name) {
+          filters.name = new RegExp(name, 'i'); // Tìm theo tên, không phân biệt hoa thường
+      }
+
+      if (startDate && endDate) {
+          filters.createdAt = { $gte: new Date(startDate), $lte: new Date(endDate) };
+      }
+
+      if (search) {
+          const searchRegex = new RegExp(search, 'i');
+          filters.$or = [
+              { _id: searchRegex },    // Tìm kiếm theo ID
+              { email: searchRegex },  // Tìm kiếm theo email
+              { name: searchRegex }    // Tìm kiếm theo tên
+          ];
+      }
+
+      const users = await User.find(filters)
+          .limit(parseInt(limit))
+          .skip((parseInt(page) - 1) * parseInt(limit))
+          .exec();
+
+      const count = await User.countDocuments(filters);
+
+      res.successResponse({
+          users
+      }, 'Fetched all users successfully', 200, {
+          totalUsers: count,
+          pageSize: parseInt(limit),
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(count / parseInt(limit))
+      });
   } catch (err) {
-    res.errorResponse('Failed to fetch users', 500, {}, { error: err.message });
+      res.errorResponse('Failed to fetch users', 500, {}, { error: err.message });
   }
 });
+
 
 /* POST create a new user */
 router.post('/create', async function (req, res, next) {
