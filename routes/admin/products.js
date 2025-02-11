@@ -8,14 +8,42 @@ const router = express.Router();
 router.use(customResponse);
 
 /* GET all products from database. */
+// router.get('/all', async function (req, res, next) {
+//     try {
+//         const products = await Product.find();
+//         res.successResponse(products, 'Fetched all products successfully');
+//     } catch (err) {
+//         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
+//     }
+// });
+
+/* GET all products from database with pagination */
 router.get('/all', async function (req, res, next) {
     try {
-        const products = await Product.find();
-        res.successResponse(products, 'Fetched all products successfully');
+        const { page = 1, limit = 12 } = req.query;
+
+        const products = await Product.find()
+            .limit(parseInt(limit))
+            .skip((parseInt(page) - 1) * parseInt(limit))
+            .exec();
+
+        const count = await Product.countDocuments();
+
+        res.status(200).json({
+    success: true,
+    message: "Fetched all products successfully",
+    data: products,
+    totalProducts: count,
+    pageSize: parseInt(limit),
+    currentPage: parseInt(page),
+    totalPages: Math.ceil(count / parseInt(limit))
+});
+
     } catch (err) {
         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
     }
 });
+
 
 /* POST create a new product */
 router.post('/create', async function (req, res, next) {
