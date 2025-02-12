@@ -8,39 +8,31 @@ var router = express.Router();
 router.use(customResponse);
 
 /* GET all users from database. */
-// router.get('/all', async function (req, res, next) {
-//   try {
-//     const users = await User.find();
-//     res.successResponse(users, 'Fetched all users successfully');
-//   } catch (err) {
-//     res.errorResponse('Failed to fetch users', 500, {}, { error: err.message });
-//   }
-// });
 router.get('/all', async function (req, res, next) {
   try {
-      const { page = 1, limit = 3, email, name, startDate, endDate, search } = req.query;
+      const { page = 1, limit = 3, role, status, createdAt, search } = req.query;
 
       const filters = {};
 
-      if (email) {
-          filters.email = email;
+      if (role) {
+        filters.role = new RegExp(`^${role}$`, 'i'); //Không phân biệt hoa thường
       }
 
-      if (name) {
-          filters.name = new RegExp(name, 'i'); // Tìm theo tên, không phân biệt hoa thường
+      if (status) {
+        filters.status = new RegExp(`^${status}$`, 'i'); //Không phân biệt hoa thường
       }
 
-      if (startDate && endDate) {
-          filters.createdAt = { $gte: new Date(startDate), $lte: new Date(endDate) };
+      if (createdAt) {
+        filters.createdAt = { $gte: new Date(createdAt) };
       }
 
       if (search) {
-          const searchRegex = new RegExp(search, 'i');
-          filters.$or = [
-              { _id: searchRegex },    // Tìm kiếm theo ID
-              { email: searchRegex },  // Tìm kiếm theo email
-              { name: searchRegex }    // Tìm kiếm theo tên
-          ];
+        const searchRegex = new RegExp(search, 'i');
+        filters.$or = [
+            { _id: searchRegex },    // Tìm kiếm theo ID
+            { email: searchRegex },  // Tìm kiếm theo email
+            { name: searchRegex }    // Tìm kiếm theo tên
+        ];
       }
 
       const users = await User.find(filters)
