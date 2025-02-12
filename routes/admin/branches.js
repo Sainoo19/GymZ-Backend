@@ -17,6 +17,15 @@ router.get('/all', async function (req, res, next) {
     }
 });
 
+router.get('/all/nopagination', async function (req, res, next) {
+    try {
+        const branches = await Branch.find();
+        res.successResponse(branches, 'Fetched all branches successfully');
+    } catch (err) {
+        res.errorResponse('Failed to fetch branches', 500, {}, { error: err.message });
+    }
+});
+
 /* POST create a new branch */
 router.post('/create', async function (req, res, next) {
     try {
