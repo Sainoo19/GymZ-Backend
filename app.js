@@ -17,6 +17,7 @@ var exercisesRouter = require('./routes/admin/exercises');
 var workoutsRouter = require('./routes/admin//workouts');
 var ordersRouter = require('./routes/admin/orders');
 var paymentsRouter = require('./routes/admin/payments');
+
 var app = express();
 
 // view engine setup

@@ -37,6 +37,7 @@ router.post("/create", async function (req, res, next) {
       await newProduct.save();
       res.successResponse(newProduct, "Product created successfully");
     } catch (err) {
+        console.error("Error creating product:", err);
       res.errorResponse("Failed to create product", 500, {}, { error: err.message });
     }
   });
