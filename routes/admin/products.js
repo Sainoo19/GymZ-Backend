@@ -8,7 +8,87 @@ const router = express.Router();
 router.use(customResponse);
 
 /* GET all products from database. */
+// router.get('/all', async function (req, res, next) {
+//     try {
+//         const products = await Product.find();
+//         res.successResponse(products, 'Fetched all products successfully');
+//     } catch (err) {
+//         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
+//     }
+// });
+
+/* GET all products from database with pagination */
 router.get('/all', async function (req, res, next) {
+    try {
+        const { page = 1, limit = 12 } = req.query;
+
+        const products = await Product.find()
+            .limit(parseInt(limit))
+            .skip((parseInt(page) - 1) * parseInt(limit))
+            .exec();
+
+        const count = await Product.countDocuments();
+
+        res.status(200).json({
+    success: true,
+    message: "Fetched all products successfully",
+    data: products,
+    totalProducts: count,
+    pageSize: parseInt(limit),
+    currentPage: parseInt(page),
+    totalPages: Math.ceil(count / parseInt(limit))
+});
+
+    } catch (err) {
+        res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
+    }
+});
+
+router.get('/minmaxprice', async function (req, res, next) {
+    try {
+        const products = await Product.find();
+
+        // Thêm min/max salePrice vào mỗi sản phẩm
+        const formattedProducts = products.map(product => {
+            if (!product.variations || product.variations.length === 0) {
+                return { ...product.toObject(), minSalePrice: null, maxSalePrice: null };
+            }
+
+            const salePrices = product.variations.map(v => v.salePrice);
+            return {
+                ...product.toObject(),
+                minSalePrice: Math.min(...salePrices),
+                maxSalePrice: Math.max(...salePrices),
+            };
+        });
+
+        res.successResponse(formattedProducts, 'Fetched all products successfully');
+    } catch (err) {
+        res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
+    }
+});
+
+// Lấy tổng stock của một sản phẩm dựa trên variations
+router.get("/stock/:productId", async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const product = await Product.findById(productId);
+  
+      if (!product) {
+        return res.status(404).json({ message: "Sản phẩm không tồn tại" });
+      }
+  
+      const totalStock = product.variations.reduce((sum, variation) => sum + (variation.stock || 0), 0);
+  
+      res.json({ productId, totalStock });
+    } catch (error) {
+      console.error("Lỗi khi lấy stock sản phẩm:", error);
+      res.status(500).json({ message: "Lỗi server" });
+    }
+  });
+
+
+router.get('/all/nopagination', async function (req, res, next) {
     try {
         const products = await Product.find();
         res.successResponse(products, 'Fetched all products successfully');
@@ -17,11 +97,12 @@ router.get('/all', async function (req, res, next) {
     }
 });
 
+
 /* POST create a new product */
 router.post("/create", async function (req, res, next) {
     try {
       const newProductId = await generateId("PR");
-      const { name, description, category, brand, variations, images } = req.body;
+      const { name, description, category, brand, variations, images,avatar } = req.body;
   
       const newProduct = new Product({
         _id: newProductId,
@@ -29,7 +110,8 @@ router.post("/create", async function (req, res, next) {
         description,
         category,
         brand,
-        variations, // Nhận danh sách loại hàng từ request body
+        variations,
+        avatar, // Nhận danh sách loại hàng từ request body
         images,
         status: "active",
       });
