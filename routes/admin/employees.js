@@ -8,14 +8,78 @@ const router = express.Router();
 router.use(customResponse);
 
 /* GET all employees from database. */
-router.get('/all', async function (req, res, next) {
+router.get("/all", async function (req, res, next) {
     try {
-        const employees = await Employee.find();
-        res.successResponse(employees, 'Fetched all employees successfully');
+      const {
+        page = 1,
+        limit = 10,
+        branchId,
+        role,
+        startDate,
+        endDate,
+        search,
+      } = req.query;
+  
+      // console.log("Received filters:", req.query);
+  
+      const filters = {};
+  
+      if (branchId) {
+        filters.branch_id = branchId;
+      }
+  
+      if (role) {
+        filters.role = new RegExp(`^${role}$`, "i");
+      }
+  
+      if (startDate && endDate) {
+        filters.createdAt = {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate),
+        };
+      }
+  
+      if (search) {
+        const searchRegex = new RegExp(search, "i"); // Tạo biểu thức chính quy không phân biệt hoa thường
+        filters.$or = [
+          { _id: searchRegex }, // Tìm kiếm theo ID
+          { name: searchRegex },
+          
+        ];
+      }
+  
+  
+      const employees = await Employee.find(filters)
+        .limit(parseInt(limit)) // Lấy giá trị limit từ query parameters hoặc đặt giá trị mặc định là 10
+        .skip((parseInt(page) - 1) * parseInt(limit)) // Lấy giá trị page từ query parameters hoặc đặt giá trị mặc định là 1
+        .exec();
+  
+      const count = await Employee.countDocuments(filters);
+  
+      res.successResponse(
+        {
+          employees,
+        },
+        "Fetched all employees successfully",
+        200,
+        {
+          totalEmployees: count,
+          pageSize: parseInt(limit),
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(count / parseInt(limit)),
+        }
+      );
+  
     } catch (err) {
-        res.errorResponse('Failed to fetch employees', 500, {}, { error: err.message });
+      res.errorResponse(
+        "Failed to fetch employees",
+        500,
+        {},
+        { error: err.message }
+      );
     }
-});
+  });
+  
 
 /* POST create a new employee */
 router.post('/create', async function (req, res, next) {
@@ -44,6 +108,28 @@ router.put('/update/:id', async function (req, res, next) {
         res.errorResponse('Failed to update employee', 500, {}, { error: err.message });
     }
 });
+
+/* DELETE remove all employees */
+router.delete("/delete-all", async function (req, res, next) {
+    try {
+      const result = await Employee.deleteMany({});
+      if (result.deletedCount === 0) {
+        return res.errorResponse("No employees found to delete", 404);
+      }
+      res.successResponse(
+        { deletedCount: result.deletedCount },
+        "All employees deleted successfully"
+      );
+    } catch (err) {
+      res.errorResponse(
+        "Failed to delete all employees",
+        500,
+        {},
+        { error: err.message }
+      );
+    }
+  });
+  
 
 /* DELETE remove an existing employee */
 router.delete('/delete/:id', async function (req, res, next) {
