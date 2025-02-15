@@ -10,8 +10,46 @@ router.use(customResponse);
 /* GET all payments from database. */
 router.get('/all', async function (req, res, next) {
     try {
-        const payments = await Payment.find();
-        res.successResponse(payments, 'Fetched all payments successfully');
+        const { page = 1, limit = 10, status, paymentMethod, startDate, endDate, search } = req.query;
+
+        const filters = {};
+
+        if (status) {
+            filters.status = status;
+        }
+
+        if (paymentMethod) {
+            filters.paymentMethod = paymentMethod;
+        }
+
+        if (startDate && endDate) {
+            filters.createdAt = { $gte: new Date(startDate), $lte: new Date(endDate) };
+        }
+
+        if (search) {
+            const searchRegex = new RegExp(search, 'i'); // Tạo biểu thức chính quy không phân biệt hoa thường
+            filters.$or = [
+                { _id: searchRegex }, // Tìm kiếm theo paymentID
+                { orderId: searchRegex }, // Tìm kiếm theo orderID
+                { user_id: searchRegex } // Tìm kiếm theo userID
+            ];
+        }
+
+        const payments = await Payment.find(filters)
+            .limit(parseInt(limit)) // Lấy giá trị limit từ query parameters hoặc đặt giá trị mặc định là 10
+            .skip((parseInt(page) - 1) * parseInt(limit)) // Lấy giá trị page từ query parameters hoặc đặt giá trị mặc định là 1
+            .exec();
+
+        const count = await Payment.countDocuments(filters);
+
+        res.successResponse({
+            payments
+        }, 'Fetched all payments successfully', 200, {
+            totalPayments: count,
+            pageSize: parseInt(limit),
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(count / parseInt(limit))
+        });
     } catch (err) {
         res.errorResponse('Failed to fetch payments', 500, {}, { error: err.message });
     }

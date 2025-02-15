@@ -60,6 +60,7 @@ router.get('/all', async function (req, res, next) {
 router.post('/create', async function (req, res, next) {
   try {
     const newUserId = await generateId('US');
+    console.log(newUserId);
     const newUser = new User({
       _id: newUserId,
       ...req.body
