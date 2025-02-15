@@ -8,7 +8,9 @@ const discountSchema = new mongoose.Schema({
     validFrom: { type: Date, required: true },
     validUntil: { type: Date, required: true },
     usageLimit: { type: Number, required: true },
-    status: { type: String, required: true, enum: ['active', 'inactive'] }
+    status: { type: String, required: true, enum: ['active', 'inactive'] },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
 });
 
 const Discount = mongoose.model('Discount', discountSchema);

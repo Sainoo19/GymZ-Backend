@@ -19,6 +19,8 @@ var ordersRouter = require('./routes/admin/orders');
 var paymentsRouter = require('./routes/admin/payments');
 var productCategoryRouter = require('./routes/admin/productCategory');
 
+var discountsRouter = require('./routes/admin/discounts');
+var productCategoryRouter = require('./routes/admin/productCategory');
 var app = express();
 
 // view engine setup
@@ -42,13 +44,15 @@ app.use('/workouts', workoutsRouter);
 app.use('/orders', ordersRouter);
 app.use('/payments', paymentsRouter);
 app.use('/productCategory', productCategoryRouter);
+app.use('/discounts', discountsRouter);
+app.use('/productCategory', productCategoryRouter);
 database.connect();
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
   next(createError(404));
 });
 
-app.use( cors( {
+app.use(cors({
   origin: 'http://localhost3001',
   methods: 'GET, POST, PUT, DELETE',
   allowedHeaders: 'Content-Type, Authorization'

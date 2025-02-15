@@ -4,6 +4,8 @@ const Schema = mongoose.Schema;
 
 const orderItemSchema = new Schema({
     product_id: { type: String, required: true },
+    theme: { type: String, required: true },
+    category: { type: String, required: true },
     quantity: { type: Number, required: true },
 });
 
