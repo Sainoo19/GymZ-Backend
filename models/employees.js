@@ -1,57 +1,57 @@
+
 const mongoose = require('mongoose');
 
 const employeeSchema = new mongoose.Schema({
     _id: {
-        _id: {
-            type: String,
-            required: true,
-        },
-        email: {
-            type: String,
-            required: true,
-            unique: true
-        },
-        password: {
-            type: String,
-            required: true
-        },
-        phone: {
-            type: String,
-            required: true
-        },
-        name: {
-            type: String,
-            required: true
-        },
-        branch_id: {
-            type: String,
-            required: true
-        },
-        role: {
-            type: String,
-            required: true
-        },
-        salary: {
-            type: Number,
-            required: true
-        },
-        hiredAt: {
-            type: Date,
-            required: true
-        },
-        createdAt: {
-            type: Date,
-            default: Date.now
-        },
-        updatedAt: {
-            type: Date,
-            default: Date.now
-        },
-        avatar: {
-            type: String,
-            default: "default-avatar.png", // Ảnh mặc định nếu không có
-        },
-    });
+        type: String,
+        required: true,
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true
+    },
+    password: {
+        type: String,
+        required: true
+    },
+    phone: {
+        type: String,
+        required: true
+    },
+    name: {
+        type: String,
+        required: true
+    },
+    branch_id: {
+        type: String,
+        required: true
+    },
+    role: {
+        type: String,
+        required: true
+    },
+    salary: {
+        type: Number,
+        required: true
+    },
+    hiredAt: {
+        type: Date,
+        required: true
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    },
+    avatar: {
+        type: String,
+        default: "default-avatar.png", // Ảnh mặc định nếu không có
+    },
+});
 
 const Employee = mongoose.model('Employee', employeeSchema);
 
