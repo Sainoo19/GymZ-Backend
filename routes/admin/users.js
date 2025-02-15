@@ -72,4 +72,14 @@ router.get('/:id', async function (req, res, next) {
   }
 });
 
+/* GET all users without pagination or filters */
+router.get('/all/nopagination', async function (req, res, next) {
+  try {
+    const users = await User.find();
+    res.successResponse(users, 'Fetched all users successfully');
+  } catch (err) {
+    res.errorResponse('Failed to fetch users', 500, {}, { error: err.message });
+  }
+});
+
 module.exports = router;

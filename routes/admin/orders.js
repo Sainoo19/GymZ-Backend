@@ -135,5 +135,13 @@ router.post('/products/byIds', async (req, res) => {
         res.errorResponse('Internal server error', 500, {}, { error: error.message });
     }
 });
-
+/* GET all orders */
+router.get('/all/nopagination', async function (req, res, next) {
+    try {
+        const orders = await Order.find();
+        res.successResponse(orders, 'Fetched all orders successfully');
+    } catch (err) {
+        res.errorResponse('Failed to fetch orders', 500, {}, { error: err.message });
+    }
+});
 module.exports = router;
