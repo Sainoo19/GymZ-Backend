@@ -18,31 +18,69 @@ router.use(customResponse);
 // });
 
 /* GET all products from database with pagination */
-router.get('/all', async function (req, res, next) {
+router.get('/all/nopagination', async function (req, res, next) {
     try {
-        const { page = 1, limit = 12 } = req.query;
-
-        const products = await Product.find()
-            .limit(parseInt(limit))
-            .skip((parseInt(page) - 1) * parseInt(limit))
-            .exec();
-
-        const count = await Product.countDocuments();
-
-        res.status(200).json({
-    success: true,
-    message: "Fetched all products successfully",
-    data: products,
-    totalProducts: count,
-    pageSize: parseInt(limit),
-    currentPage: parseInt(page),
-    totalPages: Math.ceil(count / parseInt(limit))
-});
-
+        const products = await Product.find();
+        res.successResponse(products, 'Fetched all products successfully');
     } catch (err) {
         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
     }
 });
+// GET all products with filters and pagination
+router.get('/all', async function (req, res) {
+    try {
+        const { page = 1, limit = 10, category, priceMin, priceMax, search, sortBy } = req.query;
+
+        const filters = {};
+
+        if (category) {
+            filters.category = category;
+        }
+
+        if (priceMin || priceMax) {
+            filters['variations.salePrice'] = {};
+            if (priceMin) filters['variations.salePrice'].$gte = parseInt(priceMin);
+            if (priceMax) filters['variations.salePrice'].$lte = parseInt(priceMax);
+        }
+
+        if (search) {
+            const searchRegex = new RegExp(search, 'i');
+            filters.$or = [
+                { name: searchRegex }, // Tìm theo tên sản phẩm
+                { category: searchRegex } // Tìm theo danh mục sản phẩm
+            ];
+        }
+
+        // Xác định cách sắp xếp theo giá
+        let sortOption = {};
+        if (sortBy === 'priceAsc') {
+            sortOption = { 'variations.salePrice': 1 }; // Sắp xếp giá tăng dần
+        } else if (sortBy === 'priceDesc') {
+            sortOption = { 'variations.salePrice': -1 }; // Sắp xếp giá giảm dần
+        }
+
+        const products = await Product.find(filters)
+            .sort(sortOption) // Thêm sắp xếp
+            .limit(parseInt(limit))
+            .skip((parseInt(page) - 1) * parseInt(limit))
+            .exec();
+
+        const count = await Product.countDocuments(filters);
+
+        res.successResponse({
+            products
+        }, 'Fetched all products successfully', 200, {
+            totalProducts: count,
+            pageSize: parseInt(limit),
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(count / parseInt(limit))
+        });
+    } catch (err) {
+        res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
+    }
+});
+
+
 
 router.get('/minmaxprice', async function (req, res, next) {
     try {
@@ -86,6 +124,8 @@ router.get("/stock/:productId", async (req, res) => {
       res.status(500).json({ message: "Lỗi server" });
     }
   });
+  
+ 
 
 
 router.get('/all/nopagination', async function (req, res, next) {
@@ -123,7 +163,6 @@ router.post("/create", async function (req, res, next) {
       res.errorResponse("Failed to create product", 500, {}, { error: err.message });
     }
   });
-  
 
 /* PUT update an existing product */
 router.put('/update/:id', async function (req, res, next) {
