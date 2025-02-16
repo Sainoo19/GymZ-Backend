@@ -1,10 +1,10 @@
+
 const mongoose = require('mongoose');
 
 const employeeSchema = new mongoose.Schema({
-    id: {
+    _id: {
         type: String,
         required: true,
-        unique: true
     },
     email: {
         type: String,
@@ -46,7 +46,11 @@ const employeeSchema = new mongoose.Schema({
     updatedAt: {
         type: Date,
         default: Date.now
-    }
+    },
+    avatar: {
+        type: String,
+        default: "default-avatar.png", // Ảnh mặc định nếu không có
+    },
 });
 
 const Employee = mongoose.model('Employee', employeeSchema);

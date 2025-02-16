@@ -7,7 +7,7 @@ const addressSchema = new mongoose.Schema({
 });
 
 const branchSchema = new mongoose.Schema({
-    id: { type: String, required: true },
+    _id: { type: String, required: true },
     name: { type: String, required: true },
     phone: { type: String, required: true },
     manager_id: { type: String, required: true },

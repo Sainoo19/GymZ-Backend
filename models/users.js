@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     role: { type: String, required: true },
     status: { type: String, required: true },
+    avatar: { type: String, default: "" },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
     address: {

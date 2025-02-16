@@ -1,3 +1,4 @@
+require('dotenv').config();
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
@@ -17,6 +18,10 @@ var exercisesRouter = require('./routes/admin/exercises');
 var workoutsRouter = require('./routes/admin//workouts');
 var ordersRouter = require('./routes/admin/orders');
 var paymentsRouter = require('./routes/admin/payments');
+var productCategoryRouter = require('./routes/admin/productCategory');
+
+var discountsRouter = require('./routes/admin/discounts');
+var productCategoryRouter = require('./routes/admin/productCategory');
 var app = express();
 
 // view engine setup
@@ -24,11 +29,12 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'hbs');
 
 app.use(logger('dev'));
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-
+app.use(cors());
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/employees', employeesRouter);
@@ -38,11 +44,23 @@ app.use('/exercises', exercisesRouter);
 app.use('/workouts', workoutsRouter);
 app.use('/orders', ordersRouter);
 app.use('/payments', paymentsRouter);
+app.use('/productCategory', productCategoryRouter);
+app.use('/discounts', discountsRouter);
+app.use('/productCategory', productCategoryRouter);
 database.connect();
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
   next(createError(404));
 });
+
+app.use(cors({
+  origin: 'http://localhost3001',
+  methods: 'GET, POST, PUT, DELETE',
+  allowedHeaders: 'Content-Type, Authorization'
+}
+
+)
+);
 
 // error handler
 app.use(function (err, req, res, next) {
