@@ -10,7 +10,7 @@ router.use(customResponse);
 /* GET all discounts with pagination and filtering */
 router.get('/all', async function (req, res, next) {
     try {
-        const { page = 1, limit = 10, status, validFrom, validUntil } = req.query;
+        const { page = 1, limit = 10, status, validFrom, validUntil, search } = req.query;
 
         const filters = {};
 
@@ -21,6 +21,13 @@ router.get('/all', async function (req, res, next) {
         if (validFrom && validUntil) {
             filters.validFrom = { $gte: new Date(validFrom) };
             filters.validUntil = { $lte: new Date(validUntil) };
+        }
+
+        if (search) {
+            filters.$or = [
+                { _id: { $regex: search, $options: 'i' } },
+                { code: { $regex: search, $options: 'i' } }
+            ];
         }
 
         const discounts = await Discount.find(filters)

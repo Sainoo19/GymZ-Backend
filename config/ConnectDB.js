@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 mongoose.set('strictQuery', true);
 
-const atlat = "mongodb+srv://Sainoo19:Sup151151@pokedex.c2vo3.mongodb.net/GymZ?retryWrites=true&w=majority&appName=GymZ";
+const atlat = process.env.MONGODB_URI;
 
 
 const connect = async () => {
