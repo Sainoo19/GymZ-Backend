@@ -15,13 +15,13 @@ var employeesRouter = require('./routes/admin/employees');
 var branchesRouter = require('./routes/admin/branches');
 var productRouter = require('./routes/admin/products');
 var exercisesRouter = require('./routes/admin/exercises');
-var workoutsRouter = require('./routes/admin//workouts');
+var workoutsRouter = require('./routes/admin/workouts');
 var ordersRouter = require('./routes/admin/orders');
 var paymentsRouter = require('./routes/admin/payments');
 var productCategoryRouter = require('./routes/admin/productCategory');
-
 var discountsRouter = require('./routes/admin/discounts');
-var productCategoryRouter = require('./routes/admin/productCategory');
+var authRouter = require('./routes/auth');
+
 var app = express();
 
 // view engine setup
@@ -34,7 +34,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(cors());
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/employees', employeesRouter);
@@ -46,7 +45,7 @@ app.use('/orders', ordersRouter);
 app.use('/payments', paymentsRouter);
 app.use('/productCategory', productCategoryRouter);
 app.use('/discounts', discountsRouter);
-app.use('/productCategory', productCategoryRouter);
+app.use('/auth', authRouter);
 database.connect();
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
@@ -57,10 +56,7 @@ app.use(cors({
   origin: 'http://localhost3001',
   methods: 'GET, POST, PUT, DELETE',
   allowedHeaders: 'Content-Type, Authorization'
-}
-
-)
-);
+}));
 
 // error handler
 app.use(function (err, req, res, next) {

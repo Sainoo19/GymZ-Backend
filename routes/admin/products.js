@@ -1,21 +1,12 @@
 const express = require('express');
-const Product = require('../../models/products'); // Assuming you have a Product model
+const Product = require('../../models/products');
 const customResponse = require('../../utils/customResponse');
 const generateId = require('../../utils/generateId');
+const { authenticate, authorize } = require('../../middlewares/auth');
 const router = express.Router();
 
 // Sử dụng middleware customResponse
 router.use(customResponse);
-
-/* GET all products from database. */
-// router.get('/all', async function (req, res, next) {
-//     try {
-//         const products = await Product.find();
-//         res.successResponse(products, 'Fetched all products successfully');
-//     } catch (err) {
-//         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
-//     }
-// });
 
 /* GET all products from database with pagination */
 router.get('/all/nopagination', async function (req, res, next) {
