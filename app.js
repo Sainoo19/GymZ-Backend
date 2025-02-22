@@ -21,7 +21,8 @@ var paymentsRouter = require('./routes/admin/payments');
 var productCategoryRouter = require('./routes/admin/productCategory');
 var reviewsRouter = require('./routes/admin/reviews');
 var discountsRouter = require('./routes/admin/discounts');
-var productCategoryRouter = require('./routes/admin/productCategory');
+
+var productClientRouter = require('./routes/clients/productClients')
 var app = express();
 
 // view engine setup
@@ -47,6 +48,8 @@ app.use('/payments', paymentsRouter);
 app.use('/productCategory', productCategoryRouter);
 app.use('/discounts', discountsRouter);
 app.use('/reviews', reviewsRouter);
+app.use('/productCategory', productCategoryRouter);
+app.use('/productClient', productClientRouter);
 database.connect();
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
