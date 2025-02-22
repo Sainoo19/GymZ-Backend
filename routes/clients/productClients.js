@@ -41,12 +41,18 @@ router.get('/all/active', async function (req, res, next) {
             filters.brand = { $in: brands.split(",").map(brand => brand.trim()) };
         }
 
-        // ✅ Lọc theo giá
-        if (priceMin || priceMax) {
-            filters['variations.salePrice'] = {};
-            if (priceMin) filters['variations.salePrice'].$gte = parseInt(priceMin);
-            if (priceMax) filters['variations.salePrice'].$lte = parseInt(priceMax);
-        }
+            // ✅ Lọc sản phẩm theo khoảng giá
+            if (priceMin || priceMax) {
+                filters['variations.salePrice'] = {};  
+    
+                if (priceMin) {
+                    filters['variations.salePrice'] = { ...filters['variations.salePrice'], $gte: parseInt(priceMin) };
+                }
+                if (priceMax) {
+                    filters['variations.salePrice'] = { ...filters['variations.salePrice'], $lte: parseInt(priceMax) };
+                }
+            }
+    
 
         // ✅ Tìm kiếm theo tên sản phẩm
         if (search) {
