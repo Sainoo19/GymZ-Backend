@@ -19,7 +19,7 @@ var workoutsRouter = require('./routes/admin//workouts');
 var ordersRouter = require('./routes/admin/orders');
 var paymentsRouter = require('./routes/admin/payments');
 var productCategoryRouter = require('./routes/admin/productCategory');
-
+var reviewsRouter = require('./routes/admin/reviews');
 var discountsRouter = require('./routes/admin/discounts');
 var productCategoryRouter = require('./routes/admin/productCategory');
 var app = express();
@@ -46,7 +46,7 @@ app.use('/orders', ordersRouter);
 app.use('/payments', paymentsRouter);
 app.use('/productCategory', productCategoryRouter);
 app.use('/discounts', discountsRouter);
-app.use('/productCategory', productCategoryRouter);
+app.use('/reviews', reviewsRouter);
 database.connect();
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
