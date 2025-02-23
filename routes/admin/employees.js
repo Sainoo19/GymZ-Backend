@@ -9,6 +9,18 @@ const router = express.Router();
 // Sử dụng middleware customResponse
 router.use(customResponse);
 
+router.get('/profile', authenticate, async function (req, res, next) {
+  try {
+    console.log('Employee ID from token:', req.user.id); // Thêm log để kiểm tra ID nhân viên từ token
+    const employee = await Employee.findById(req.user.id);
+    if (!employee) {
+      return res.errorResponse('Employee not found', 404);
+    }
+    res.successResponse(employee, 'Fetched employee profile successfully');
+  } catch (err) {
+    res.errorResponse('Failed to fetch employee profile', 500, {}, { error: err.message });
+  }
+});
 /* GET all employees from database. */
 router.get('/all', authenticate, authorize(['admin', 'manager']), async function (req, res, next) {
   try {

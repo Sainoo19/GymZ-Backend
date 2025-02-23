@@ -29,11 +29,19 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'hbs');
 
 app.use(logger('dev'));
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Cấu hình CORS
+app.use(cors({
+  origin: 'http://localhost:3001', // Chỉ định nguồn gốc cụ thể
+  methods: 'GET, POST, PUT, DELETE',
+  allowedHeaders: 'Content-Type, Authorization, cache-control', // Thêm cache-control vào danh sách các header được phép
+  credentials: true // Cho phép gửi cookie
+}));
+
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/employees', employeesRouter);
@@ -47,16 +55,11 @@ app.use('/productCategory', productCategoryRouter);
 app.use('/discounts', discountsRouter);
 app.use('/auth', authRouter);
 database.connect();
+
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
   next(createError(404));
 });
-
-app.use(cors({
-  origin: 'http://localhost3001',
-  methods: 'GET, POST, PUT, DELETE',
-  allowedHeaders: 'Content-Type, Authorization'
-}));
 
 // error handler
 app.use(function (err, req, res, next) {

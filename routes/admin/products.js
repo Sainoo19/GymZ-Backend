@@ -54,6 +54,7 @@ router.get('/all', async function (req, res) {
             .sort(sortOption) // Thêm sắp xếp
             .limit(parseInt(limit))
             .skip((parseInt(page) - 1) * parseInt(limit))
+            .populate('category', 'name')
             .exec();
 
         const count = await Product.countDocuments(filters);
