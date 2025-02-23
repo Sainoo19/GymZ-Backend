@@ -72,7 +72,33 @@ router.get('/all', async function (req, res) {
     }
 });
 
+router.get('/minmaxprice/:productId', async function (req, res) {
+    try {
+        const { productId } = req.params;
+        const product = await Product.findById(productId);
 
+        if (!product) {
+            return res.status(404).json({ message: "Sản phẩm không tồn tại" });
+        }
+        // Lấy danh sách biến thể và tìm min/max price
+        if (!product.variations || product.variations.length === 0) {
+            return res.json({ minPrice: 0, maxPrice: 0, message: "Không có biến thể nào." });
+        }
+
+        const prices = product.variations.map(v => v.salePrice);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+
+        return res.json({
+            productId: product._id,
+            minPrice,
+            maxPrice,
+            message: "Lấy giá thành công"
+        });
+    } catch (err) {
+        res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
+    }
+});
 
 router.get('/minmaxprice', async function (req, res, next) {
     try {
