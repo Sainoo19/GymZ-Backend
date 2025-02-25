@@ -1,21 +1,12 @@
 const express = require('express');
-const Product = require('../../models/products'); // Assuming you have a Product model
+const Product = require('../../models/products');
 const customResponse = require('../../utils/customResponse');
 const generateId = require('../../utils/generateId');
+const { authenticate, authorize } = require('../../middlewares/auth');
 const router = express.Router();
 
 // Sử dụng middleware customResponse
 router.use(customResponse);
-
-/* GET all products from database. */
-// router.get('/all', async function (req, res, next) {
-//     try {
-//         const products = await Product.find();
-//         res.successResponse(products, 'Fetched all products successfully');
-//     } catch (err) {
-//         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
-//     }
-// });
 
 /* GET all products from database with pagination */
 router.get('/all/nopagination', async function (req, res, next) {
@@ -63,6 +54,7 @@ router.get('/all', async function (req, res) {
             .sort(sortOption) // Thêm sắp xếp
             .limit(parseInt(limit))
             .skip((parseInt(page) - 1) * parseInt(limit))
+            .populate('category', 'name')
             .exec();
 
         const count = await Product.countDocuments(filters);
@@ -80,7 +72,33 @@ router.get('/all', async function (req, res) {
     }
 });
 
+router.get('/minmaxprice/:productId', async function (req, res) {
+    try {
+        const { productId } = req.params;
+        const product = await Product.findById(productId);
 
+        if (!product) {
+            return res.status(404).json({ message: "Sản phẩm không tồn tại" });
+        }
+        // Lấy danh sách biến thể và tìm min/max price
+        if (!product.variations || product.variations.length === 0) {
+            return res.json({ minPrice: 0, maxPrice: 0, message: "Không có biến thể nào." });
+        }
+
+        const prices = product.variations.map(v => v.salePrice);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+
+        return res.json({
+            productId: product._id,
+            minPrice,
+            maxPrice,
+            message: "Lấy giá thành công"
+        });
+    } catch (err) {
+        res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
+    }
+});
 
 router.get('/minmaxprice', async function (req, res, next) {
     try {

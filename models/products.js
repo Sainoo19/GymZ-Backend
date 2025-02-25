@@ -15,6 +15,7 @@ const productSchema = new mongoose.Schema({
             stock: { type: Number, required: true }, // Số lượng tồn kho
             originalPrice: { type: Number, required: true }, // Giá gốc
             salePrice: { type: Number, required: true }, // Giá bán
+            costPrice: { type: Number, required: false, default: 0 }, // Giá vốn
         },
     ],
     images: { type: [String], required: false },
