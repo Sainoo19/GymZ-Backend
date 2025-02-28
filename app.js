@@ -23,6 +23,10 @@ var reviewsRouter = require('./routes/admin/reviews');
 var discountsRouter = require('./routes/admin/discounts');
 var authRouter = require('./routes/auth');
 var productClientRouter = require('./routes/clients/productClients')
+var cartClientRouter = require('./routes/clients/cartClient')
+var paymentRoutes = require ('./routes/clients/payment/MomoPayment')
+var userClientRoutes = require ('./routes/clients/userClient')
+
 var app = express();
 
 // view engine setup
@@ -57,6 +61,9 @@ app.use('/discounts', discountsRouter);
 app.use('/reviews', reviewsRouter);
 app.use('/auth', authRouter);
 app.use('/productClient', productClientRouter);
+app.use('/cartClient', cartClientRouter);
+app.use('/payment', paymentRoutes);
+app.use("/userClient", userClientRoutes);
 database.connect();
 
 // catch 404 and forward to error handler
