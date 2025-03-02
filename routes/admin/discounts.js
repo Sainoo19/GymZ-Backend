@@ -102,15 +102,62 @@ router.delete('/delete/:id', async function (req, res, next) {
 });
 
 /* GET discount by id */
-router.get('/:id', async function (req, res, next) {
+// router.get('/:id', async function (req, res, next) {
+//     try {
+//         const discount = await Discount.findById(req.params.id);
+//         if (!discount) {
+//             return res.errorResponse('Discount not found', 404);
+//         }
+//         res.successResponse(discount, 'Fetched discount successfully');
+//     } catch (err) {
+//         res.errorResponse('Failed to fetch discount', 500, {}, { error: err.message });
+//     }
+// });
+
+router.get('/getVoucher', async (req, res) => {
     try {
-        const discount = await Discount.findById(req.params.id);
-        if (!discount) {
-            return res.errorResponse('Discount not found', 404);
+        const { code } = req.query;
+        if (!code) {
+            return res.status(400).json({
+                status: "error",
+                code: 400,
+                message: "Code is required"
+            });
         }
-        res.successResponse(discount, 'Fetched discount successfully');
+
+        // Lấy ngày hiện tại
+        const today = new Date();
+
+        // Tìm voucher hợp lệ
+        const discount = await Discount.findOne({
+            code,
+            status: 'active',
+            validFrom: { $lte: today },  // Ngày bắt đầu <= hôm nay
+            validUntil: { $gte: today }, // Ngày hết hạn >= hôm nay
+            usageLimit: { $gt: 0 }       // Số lần sử dụng còn > 0
+        }).select('-__v'); // Loại bỏ trường __v để gọn response
+
+        if (!discount) {
+            return res.status(404).json({
+                status: "error",
+                code: 404,
+                message: "Discount not found, expired, or usage limit reached"
+            });
+        }
+
+        res.status(200).json({
+            status: "success",
+            code: 200,
+            message: "Discount retrieved successfully",
+            data: discount
+        });
     } catch (err) {
-        res.errorResponse('Failed to fetch discount', 500, {}, { error: err.message });
+        res.status(500).json({
+            status: "error",
+            code: 500,
+            message: "Internal Server Error",
+            error: err.message
+        });
     }
 });
 

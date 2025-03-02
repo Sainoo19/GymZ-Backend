@@ -109,6 +109,77 @@ router.get("/get", authenticate, async (req, res) => {
     }
 });
 
+router.delete("/remove", authenticate, async (req, res) => {
+    try {
+      const { product_id, category, theme } = req.body;
+      const user_id = req.user.id; // Lấy ID user từ token/session
+  
+      if (!product_id || !category) {
+        return res.status(400).json({ success: false, message: "Thiếu thông tin sản phẩm cần xoá" });
+      }
+  
+      // Tạo điều kiện tìm sản phẩm
+      let condition = { product_id, category };
+      if (theme) condition.theme = theme;
+  
+      // Xoá sản phẩm
+      const updatedCart = await Cart.findOneAndUpdate(
+        { user_id },
+        { $pull: { items: condition } },
+        { new: true }
+      );
+  
+      if (!updatedCart) {
+        return res.status(404).json({ success: false, message: "Không tìm thấy giỏ hàng" });
+      }
+  
+      // Cập nhật lại totalPrice
+      updatedCart.totalPrice = updatedCart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      await updatedCart.save();
+  
+      res.json({ success: true, cart: updatedCart });
+    } catch (error) {
+      console.error("Lỗi khi xoá sản phẩm:", error);
+      res.status(500).json({ success: false, message: "Lỗi khi xoá sản phẩm" });
+    }
+  });
+  
 
+  
+  
+  // API cập nhật số lượng sản phẩm trong giỏ hàng
+  router.put("/updateQuantity", authenticate,async (req, res) => {
+    try {
+        console.log("Request Body:", req.body);
 
+        const { product_id, theme, category, quantity } = req.body;
+        const user_id = req.user?.id; // Đảm bảo user_id có giá trị
+
+        if (!product_id || !category || !quantity || quantity < 1) {
+            return res.status(400).json({ message: "Dữ liệu không hợp lệ!", data: req.body });
+        }
+
+        const cart = await Cart.findOne({ user_id });
+        if (!cart) return res.status(404).json({ message: "Giỏ hàng không tồn tại!" });
+
+        const item = cart.items.find(
+            (i) => i.product_id === product_id && i.category === category && (!theme || i.theme === theme)
+        );
+
+        if (!item) return res.status(404).json({ message: "Sản phẩm không tồn tại trong giỏ hàng!" });
+
+        item.quantity = quantity;
+        cart.totalPrice = cart.items.reduce((total, i) => total + i.price * i.quantity, 0);
+
+        await cart.save();
+        return res.status(200).json({ cart });
+    } catch (error) {
+        console.error("Lỗi khi cập nhật số lượng:", error);
+        return res.status(500).json({ message: "Lỗi server", error });
+    }
+});
+
+  
+  
+  
 module.exports = router;

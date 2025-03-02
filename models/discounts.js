@@ -5,9 +5,11 @@ const discountSchema = new mongoose.Schema({
     code: { type: String, required: true },
     description: { type: String, required: true },
     discountPercent: { type: Number, required: true },
+    maxDiscountAmount: { type: Number, required: false, default: 0 }, // Giới hạn số tiền giảm tối đa
     validFrom: { type: Date, required: true },
     validUntil: { type: Date, required: true },
     usageLimit: { type: Number, required: true },
+    applicableProducts: [{ type: String, ref: 'Product' }], // Danh sách ID sản phẩm áp dụng
     status: { type: String, required: true, enum: ['active', 'inactive'] },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
