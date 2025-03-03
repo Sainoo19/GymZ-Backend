@@ -26,6 +26,7 @@ var productClientRouter = require('./routes/clients/productClients')
 var cartClientRouter = require('./routes/clients/cartClient')
 var paymentRoutes = require ('./routes/clients/payment/MomoPayment')
 var userClientRoutes = require ('./routes/clients/userClient')
+var orderClientRoutes = require ('./routes/clients/orderClient')
 
 var app = express();
 
@@ -64,6 +65,7 @@ app.use('/productClient', productClientRouter);
 app.use('/cartClient', cartClientRouter);
 app.use('/payment', paymentRoutes);
 app.use("/userClient", userClientRoutes);
+app.use("/orderClient", orderClientRoutes);
 database.connect();
 
 // catch 404 and forward to error handler

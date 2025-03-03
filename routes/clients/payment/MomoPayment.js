@@ -2,16 +2,25 @@ const express = require("express");
 const axios = require("axios");
 const crypto = require("crypto");
 const Payment = require('../../../models/payments'); // Cập nhật đường dẫn đúng
+const { authenticate } = require("../../../middlewares/auth");
 
 const router = express.Router();
-var Ngrok_Url = "https://bbe1-14-186-220-9.ngrok-free.app";
+var Ngrok_Url = "https://a937-14-186-220-9.ngrok-free.app";
 var accessKey = "F8BBA842ECF85";
 var secretKey = "K951B6PE1waDMi640xX08PD3vg6EkVlz";
 var URL_FRONTEND = process.env.URL_FRONTEND;
-router.post("/momopayment", async (req, res) => {
+
+
+
+router.post("/momopayment", authenticate, async (req, res) => {
   var { amount } = req.body; // Lấy số tiền từ request
   if (!amount) {
     return res.status(400).json({ message: "Thiếu số tiền thanh toán" });
+  }
+
+  var user_id = req.user?.id;
+  if (!user_id) {
+    return res.status(400).json({ message: "Không tìm thấy user_id" });
   }
 
   var orderInfo = "Thanh toán MoMo";
@@ -21,7 +30,7 @@ router.post("/momopayment", async (req, res) => {
   var ipnUrl = `${Ngrok_Url}`;
   var requestType = "payWithMethod";
   var requestId = orderId;
-  var extraData = "";
+  var extraData = JSON.stringify({ user_id });
 
   var rawSignature =
     `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&ipnUrl=${ipnUrl}&orderId=${orderId}` +
@@ -88,21 +97,41 @@ const updateOrderStatusAutomatically = async (orderId) => {
   }, 10000); // Cập nhật trạng thái mỗi 10 giây
 };
 
-router.get("/callback", async (req, res) => {
-  const { resultCode, orderId } = req.query;
+router.get("/callback",async (req, res) => {
+const { resultCode, amount, transId, message, extraData, orderInfo } = req.query;
+let orderId = req.query.orderId;
 
+// Kiểm tra nếu orderId là một mảng, lấy phần tử đầu tiên
+if (Array.isArray(orderId)) {
+  orderId = orderId[0];
+}  const { user_id } = JSON.parse(extraData || "{}");
   if (resultCode === "0") {
-    await Payment.findOneAndUpdate({ orderId }, { status: "Đơn hàng đã được tạo" });
+    try {
+      // Lưu thông tin thanh toán vào database
+      const newPayment = new Payment({
+        _id: transId, // Dùng transaction ID của MoMo làm _id
+        orderId: String(orderId),
+        user_id, // Bạn cần truyền user_id từ frontend
+        amount: parseInt(amount),
+        paymentMethod: "MoMo",
+        status: "Đơn hàng đã được tạo",
+      });
 
-    // Tự động cập nhật trạng thái đơn hàng
-    updateOrderStatusAutomatically(orderId);
+      await newPayment.save();
 
-    // 🔹 Chuyển hướng đến trang OrderProgressPage với orderId
-    return res.redirect(`${URL_FRONTEND}/order-progress?orderId=${orderId}`);
+      // Tự động cập nhật trạng thái đơn hàng
+      updateOrderStatusAutomatically(orderId);
+
+      // 🔹 Chuyển hướng đến trang OrderProgressPage với orderId
+      return res.redirect(`${URL_FRONTEND}/order-progress?orderId=${orderId}`);
+    } catch (error) {
+      return res.status(500).json({ message: "Lỗi lưu thông tin thanh toán", error: error.message });
+    }
   } else {
-    return res.status(400).json({ message: "Thanh toán thất bại" });
+    return res.status(400).json({ message: "Thanh toán thất bại", error: message });
   }
 });
+
 
 
 

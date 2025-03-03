@@ -4,7 +4,7 @@ const Schema = mongoose.Schema;
 
 const orderItemSchema = new Schema({
     product_id: { type: String, required: true },
-    theme: { type: String, required: true },
+    theme: { type: String, required: false },
     category: { type: String, required: true },
     quantity: { type: Number, required: true },
 });
@@ -16,6 +16,8 @@ const orderSchema = new Schema({
     status: { type: String, required: true },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
+    deliveryAdress: {type: String, require: true},
+    deliveryPhoneNumber: {type: String, require: true},
     items: [orderItemSchema]
 });
 

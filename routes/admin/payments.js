@@ -35,7 +35,7 @@ router.get('/all', async function (req, res, next) {
             ];
         }
 
-        const payments = await Payment.find(filters)
+        const payments = await Payment.find(filters).sort({ createdAt: -1 })
             .limit(parseInt(limit)) // Lấy giá trị limit từ query parameters hoặc đặt giá trị mặc định là 10
             .skip((parseInt(page) - 1) * parseInt(limit)) // Lấy giá trị page từ query parameters hoặc đặt giá trị mặc định là 1
             .exec();
