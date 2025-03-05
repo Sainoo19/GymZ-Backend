@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const Cart = require("../../models/cart");
 const Product = require("../../models/products");
+const Order = require("../../models/orders");
 const { authenticate } = require("../../middlewares/auth");
 
 // Thêm sản phẩm vào giỏ hàng
@@ -180,6 +181,45 @@ router.delete("/remove", authenticate, async (req, res) => {
 });
 
   
-  
+router.delete("/clear", authenticate, async (req, res) => {
+    try {
+        const { orderId } = req.body;
+        const user_id = req.user.id;
+
+        if (!orderId) {
+            return res.status(400).json({ message: "Thiếu orderId" });
+        }
+
+        // Tìm đơn hàng trong database
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+        }
+
+        // Tìm giỏ hàng của người dùng
+        const cart = await Cart.findOne({ user_id });
+        if (!cart) {
+            return res.status(404).json({ message: "Giỏ hàng không tồn tại" });
+        }
+
+        // Lọc bỏ sản phẩm theo category và theme
+        cart.items = cart.items.filter(cartItem => 
+            !order.items.some(orderItem =>
+                orderItem.category === cartItem.category &&
+                (orderItem.theme ? orderItem.theme === cartItem.theme : true) // Kiểm tra nếu có theme thì phải trùng
+            )
+        );
+
+        // Cập nhật lại totalPrice
+        cart.totalPrice = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        await cart.save();
+
+        res.status(200).json({ message: "Đã xoá sản phẩm theo category và theme khỏi giỏ hàng", cart });
+    } catch (error) {
+        console.error("Lỗi khi xoá sản phẩm theo category và theme:", error);
+        res.status(500).json({ message: "Lỗi server" });
+    }
+});
+
   
 module.exports = router;

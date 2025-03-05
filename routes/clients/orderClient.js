@@ -45,7 +45,31 @@ router.post("/create", authenticate, async (req, res) => {
         return res.status(500).json({ message: "Lỗi khi tạo đơn hàng", error: error.message });
     }
 });
-
+router.put("/update-status", async (req, res) => {
+    const { orderId, status } = req.body;
+  
+    if (!orderId || !status) {
+      return res.status(400).json({ message: "Thiếu thông tin orderId hoặc status!" });
+    }
+  
+    try {
+      const updatedOrder = await Order.findByIdAndUpdate(
+        orderId,
+        { status },
+        { new: true }
+      );
+  
+      if (!updatedOrder) {
+        return res.status(404).json({ message: "Không tìm thấy đơn hàng!" });
+      }
+  
+      return res.json({ message: "Cập nhật trạng thái thành công!", order: updatedOrder });
+    } catch (error) {
+      console.error("Lỗi cập nhật trạng thái đơn hàng:", error);
+      return res.status(500).json({ message: "Lỗi server khi cập nhật trạng thái đơn hàng." });
+    }
+  });
+  
 router.put("/cancel/:orderId", authenticate, async (req, res) => {
     try {
         const { orderId } = req.params;

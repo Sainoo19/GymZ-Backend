@@ -24,9 +24,12 @@ var discountsRouter = require('./routes/admin/discounts');
 var authRouter = require('./routes/auth');
 var productClientRouter = require('./routes/clients/productClients')
 var cartClientRouter = require('./routes/clients/cartClient')
-var paymentRoutes = require ('./routes/clients/payment/MomoPayment')
+var paymentRoutes = require ('./routes/API_Third_Party/payment/MomoPayment')
 var userClientRoutes = require ('./routes/clients/userClient')
 var orderClientRoutes = require ('./routes/clients/orderClient')
+var GHTKShippingRoutes = require ('./routes/API_Third_Party/Shipping/GHTK')
+var paymentClientRoutes = require ('./routes/clients/paymentClient')
+
 
 var app = express();
 
@@ -66,6 +69,8 @@ app.use('/cartClient', cartClientRouter);
 app.use('/payment', paymentRoutes);
 app.use("/userClient", userClientRoutes);
 app.use("/orderClient", orderClientRoutes);
+app.use("/shipping", GHTKShippingRoutes);
+app.use("/paymentClient", paymentClientRoutes);
 database.connect();
 
 // catch 404 and forward to error handler

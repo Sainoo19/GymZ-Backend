@@ -4,6 +4,7 @@ const ProductCategory = require('../../models/productCategories')
 const customResponse = require('../../utils/customResponse');
 const generateId = require('../../utils/generateId');
 const router = express.Router();
+const Order = require("../../models/orders"); // Model đơn hàng
 
 
 // Sử dụng middleware customResponse
@@ -327,5 +328,66 @@ router.get('/:id', async function (req, res, next) {
         res.errorResponse('Failed to fetch product', 500, {}, { error: err.message });
     }
 });
+
+
+router.put("/update-stock", async (req, res) => {
+    try {
+      const { orderId } = req.body;
+  
+      // Tìm đơn hàng trong database
+      const order = await Order.findById(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+      }
+  
+      // Lặp qua từng sản phẩm trong đơn hàng
+      for (const item of order.items) {
+        const { product_id, category, theme, quantity } = item;
+  
+        // Tìm sản phẩm dựa trên ID, category và theme (nếu có)
+        const product = await Product.findOne({
+          _id: product_id,
+          "variations.category": category,
+          ...(theme && { "variations.theme": theme }),
+        });
+  
+        if (product) {
+          // Tìm đúng biến thể có category và theme
+          const variation = product.variations.find(
+            (v) => v.category === category && (!theme || v.theme === theme)
+          );
+  
+          if (variation) {
+            // Kiểm tra số lượng tồn kho
+            if (variation.stock >= quantity) {
+              variation.stock -= quantity; // Trừ số lượng đã đặt
+              await product.save(); // Lưu lại cập nhật
+            } else {
+              return res.status(400).json({
+                message: `Sản phẩm ${product.name} (Category: ${category}, Theme: ${
+                  theme || "Không có"
+                }) không đủ hàng.`,
+              });
+            }
+          } else {
+            return res.status(404).json({
+              message: `Không tìm thấy biến thể phù hợp cho sản phẩm ${product.name}.`,
+            });
+          }
+        } else {
+          return res.status(404).json({
+            message: `Không tìm thấy sản phẩm với ID: ${product_id}.`,
+          });
+        }
+      }
+  
+      res.status(200).json({ message: "Cập nhật số lượng sản phẩm thành công!" });
+    } catch (error) {
+      console.error("Lỗi cập nhật kho hàng:", error);
+      res.status(500).json({ message: "Lỗi server" });
+    }
+  });
+  
+  
 
 module.exports = router;
