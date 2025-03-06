@@ -15,6 +15,7 @@ const productSchema = new mongoose.Schema({
             stock: { type: Number, required: true }, // Số lượng tồn kho
             originalPrice: { type: Number, required: true }, // Giá gốc
             salePrice: { type: Number, required: true }, // Giá bán
+            weight: { type: Number, required: true }, // Cân nặng của sản phẩm
             costPrice: { type: Number, required: false, default: 0 }, // Giá vốn
         },
     ],
