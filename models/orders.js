@@ -18,6 +18,7 @@ const orderSchema = new Schema({
     updatedAt: { type: Date, default: Date.now },
     deliveryAdress: {type: String, require: true},
     deliveryPhoneNumber: {type: String, require: true},
+    deliveryName: {type: String, require: true},
     items: [orderItemSchema]
 });
 
