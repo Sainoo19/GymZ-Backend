@@ -209,6 +209,7 @@ router.get('/:id', async function (req, res, next) {
         res.errorResponse('Failed to fetch product', 500, {}, { error: err.message });
     }
 });
+
 router.put("/update-stock/:productId", async (req, res) => {
     try {
         const { productId } = req.params;

@@ -6,6 +6,7 @@ const User = require("../../models/users"); // Đảm bảo đường dẫn đú
 const generateId = require('../../utils/generateId');
 const {authenticate} = require("../../middlewares/auth")
 const io = require("../../socket/socketIO").getIO(); // Import socketIO
+const socketIO = require("../../socket/socketIO"); // Đảm bảo đúng đường dẫn đến module
 
 const router = express.Router();
 
@@ -62,10 +63,10 @@ router.post("/create", authenticate, async (req, res) => {
           totalPrice,
           createdAt: newOrder.createdAt,
         });
-        console.log("✅ Đã gửi sự kiện 'newOrder'");
+        console.log("Đã gửi sự kiện 'newOrder'");
       }
     } catch (err) {
-      console.error("🚨 Lỗi khi gọi getIO:", err.message);
+      console.error("Lỗi khi gọi getIO:", err.message);
     }
 
 
