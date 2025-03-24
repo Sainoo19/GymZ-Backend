@@ -5,7 +5,7 @@ const ProductCategory = require("../../models/productCategories");
 const mongoose = require("mongoose");
 
 const router = express.Router();
-const statusOrder = "Đã thanh toán"
+const statusOrder = "Đặt hàng thành công"
 router.get("/profitByMonth", async (req, res) => {
     try {
         const currentYear = new Date().getFullYear();
@@ -628,43 +628,7 @@ router.get("/products-inventory/:id", async (req, res) => {
     }
 });
 
-router.put("/update-stock/:productId", async (req, res) => {
-    try {
-        const { productId } = req.params;
-        const { variations } = req.body;
-        
-        if (!variations || !Array.isArray(variations) || variations.length === 0) {
-            return res.status(400).json({ message: "Dữ liệu variations không hợp lệ!" });
-        }
 
-
-        const product = await Product.findById(productId);
-        if (!product) {
-            return res.status(404).json({ message: "Sản phẩm không tồn tại!" });
-        }
-
-
-        product.variations.forEach((variation) => {
-            const updatedVariation = variations.find(
-                (v) => v.category === variation.category && v.theme === variation.theme
-            );
-
-            if (updatedVariation) {
-                console.log(`Cập nhật stock cho ${variation.category} - ${variation.theme}`);
-                variation.stock += Number(updatedVariation.additionalStock || 0);
-            }
-        });
-
-        // Lưu cập nhật vào database
-        await product.save();
-        console.log("Cập nhật thành công:", product.variations);
-
-        res.json({ message: "Cập nhật stock thành công", product });
-    } catch (error) {
-        console.error("Lỗi cập nhật stock:", error);
-        res.status(500).json({ message: "Lỗi server", error: error.message });
-    }
-});
 
 const predictStockNeeded = (salesHistory, currentStock) => {
     if (!Array.isArray(salesHistory) || salesHistory.length === 0) return 0;

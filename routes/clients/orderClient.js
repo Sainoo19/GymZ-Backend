@@ -34,7 +34,7 @@ router.post("/create", authenticate, async (req, res) => {
     }
 
     // Tạo ID duy nhất cho đơn hàng
-    const orderId = new mongoose.Types.ObjectId().toString();
+    const orderId = await generateId("ORD");
 
     // Tạo đơn hàng mới
     const newOrder = new Order({
@@ -55,9 +55,8 @@ router.post("/create", authenticate, async (req, res) => {
     try {
       const io = socketIO.getIO();
       if (!io) {
-        console.warn("⚠️ Socket.IO chưa sẵn sàng, bỏ qua kết nối.");
+        console.warn("Socket.IO chưa sẵn sàng, bỏ qua kết nối.");
       } else {
-        // 🔥 Gửi sự kiện thông báo đơn hàng mới đến frontend
         io.emit("newOrder", {
           orderId,
           totalPrice,
