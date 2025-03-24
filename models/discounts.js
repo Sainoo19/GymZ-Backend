@@ -18,3 +18,4 @@ const discountSchema = new mongoose.Schema({
 const Discount = mongoose.model('Discount', discountSchema);
 
 module.exports = Discount;
+//check

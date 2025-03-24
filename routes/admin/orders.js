@@ -60,7 +60,9 @@ router.get("/all", async function (req, res, next) {
     }
 
     const orders = await Order.find(filters)
-      .limit(parseInt(limit)) // Lấy giá trị limit từ query parameters hoặc đặt giá trị mặc định là 10
+    .sort({ createdAt: -1 })  // Sắp xếp theo thời gian tạo mới nhất
+  
+    .limit(parseInt(limit)) // Lấy giá trị limit từ query parameters hoặc đặt giá trị mặc định là 10
       .skip((parseInt(page) - 1) * parseInt(limit)) // Lấy giá trị page từ query parameters hoặc đặt giá trị mặc định là 1
       .exec();
 

@@ -12,9 +12,10 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
     address: {
-        street: { type: String, required: true },
-        city: { type: String, required: true },
-        country: { type: String, required: true }
+        province: {type: String, require: true},
+        district: {type: String, require: true},
+        ward: {type: String, require: true},
+        street: {type:String, require: true}
     }
 });
 

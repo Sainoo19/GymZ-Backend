@@ -5,13 +5,14 @@ const Cart = require("../../models/cart");
 const Product = require("../../models/products");
 const Order = require("../../models/orders");
 const { authenticate } = require("../../middlewares/auth");
+const generateId = require("../../utils/generateId");
 
 // Thêm sản phẩm vào giỏ hàng
 router.post("/add", authenticate, async (req, res) => {
     try {
         const { product_id, quantity, theme, category } = req.body;
         const userId = req.user.id;
-
+        const newCartId = await generateId("CART");
         // Kiểm tra đầu vào hợp lệ
         if (!product_id || !quantity || isNaN(quantity) || quantity <= 0) {
             return res.status(400).json({ message: "Dữ liệu đầu vào không hợp lệ" });
@@ -43,7 +44,7 @@ router.post("/add", authenticate, async (req, res) => {
         let cart = await Cart.findOne({ user_id: userId });
         if (!cart) {
             cart = new Cart({
-                _id: new mongoose.Types.ObjectId().toString(),
+                _id: newCartId,
                 user_id: userId,
                 totalPrice: 0,
                 items: [],
@@ -78,7 +79,21 @@ router.post("/add", authenticate, async (req, res) => {
         res.status(500).json({ message: "Lỗi server" });
     }
 });
+// Lấy tất cả giỏ hàng trong hệ thống
+router.get("/all", authenticate, async (req, res) => {
+    try {
+        const carts = await Cart.find().populate("user_id", "username email");
+        
+        if (!carts || carts.length === 0) {
+            return res.status(200).json({ message: "Không có giỏ hàng nào" });
+        }
 
+        res.status(200).json({ message: "Lấy tất cả giỏ hàng thành công", carts });
+    } catch (error) {
+        console.error("Lỗi khi lấy tất cả giỏ hàng:", error);
+        res.status(500).json({ message: "Lỗi server" });
+    }
+});
 
 // Lấy toàn bộ sản phẩm trong giỏ hàng
 router.get("/get", authenticate, async (req, res) => {

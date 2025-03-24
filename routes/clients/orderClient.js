@@ -3,48 +3,80 @@ const express = require("express");
 const mongoose = require("mongoose");
 const Order = require("../../models/orders");
 const User = require("../../models/users"); // Đảm bảo đường dẫn đúng
-
+const generateId = require('../../utils/generateId');
 const {authenticate} = require("../../middlewares/auth")
+const io = require("../../socket/socketIO").getIO(); // Import socketIO
 
 const router = express.Router();
 
 // API tạo đơn hàng
 router.post("/create", authenticate, async (req, res) => {
-    try {
-        const { user_id, totalPrice, status, deliveryAdress, deliveryPhoneNumber, items } = req.body;
+  try {
+    const { 
+      user_id, 
+      totalPrice, 
+      status, 
+      deliveryAddress,
+      createdAt,
+      updatedAt,
+      items 
+    } = req.body;
 
-        // Kiểm tra đầu vào
-        if (!user_id || !totalPrice || !status || !deliveryAdress || !items || !Array.isArray(items) || items.length === 0) {
-            return res.status(400).json({ message: "Thiếu thông tin đơn hàng hoặc danh sách sản phẩm không hợp lệ" });
-        }
-
-        // 📌 Lấy thông tin user từ database
-        const user = await User.findById(user_id);
-        if (!user) {
-            return res.status(404).json({ message: "Người dùng không tồn tại" });
-        }
-
-        // Tạo ID duy nhất cho đơn hàng
-        const orderId = new mongoose.Types.ObjectId().toString();
-
-        const newOrder = new Order({
-            _id: orderId,
-            user_id,
-            totalPrice,
-            status,
-            deliveryPhoneNumber: user.phone, // ✅ Lấy từ user
-            deliveryAdress,
-            items,
-        });
-
-        // Lưu vào database
-        await newOrder.save();
-
-        return res.status(201).json({ message: "Tạo đơn hàng thành công", order: newOrder });
-    } catch (error) {
-        return res.status(500).json({ message: "Lỗi khi tạo đơn hàng", error: error.message });
+    // Kiểm tra thông tin bắt buộc
+    if (!user_id || !totalPrice || !status || !deliveryAddress || !items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: "Thiếu thông tin đơn hàng hoặc danh sách sản phẩm không hợp lệ" });
     }
+
+    // Kiểm tra các trường trong deliveryAddress
+    const { provinceName, districtName, wardName, street, name, phone } = deliveryAddress;
+    if (!provinceName || !districtName || !wardName || !street || !name || !phone) {
+      return res.status(400).json({ message: "Thiếu thông tin địa chỉ giao hàng" });
+    }
+
+    // Tạo ID duy nhất cho đơn hàng
+    const orderId = new mongoose.Types.ObjectId().toString();
+
+    // Tạo đơn hàng mới
+    const newOrder = new Order({
+      _id: orderId,
+      user_id,
+      totalPrice,
+      status,
+      deliveryPhoneNumber: phone,
+      deliveryName: name,
+      deliveryAdress: { province: provinceName, district: districtName, ward: wardName, street },
+      items,
+      createdAt: createdAt || Date.now(),
+      updatedAt: updatedAt || Date.now(),
+    });
+
+    // Lưu vào database
+    await newOrder.save();
+    try {
+      const io = socketIO.getIO();
+      if (!io) {
+        console.warn("⚠️ Socket.IO chưa sẵn sàng, bỏ qua kết nối.");
+      } else {
+        // 🔥 Gửi sự kiện thông báo đơn hàng mới đến frontend
+        io.emit("newOrder", {
+          orderId,
+          totalPrice,
+          createdAt: newOrder.createdAt,
+        });
+        console.log("✅ Đã gửi sự kiện 'newOrder'");
+      }
+    } catch (err) {
+      console.error("🚨 Lỗi khi gọi getIO:", err.message);
+    }
+
+
+    return res.status(201).json({ message: "Tạo đơn hàng thành công", order: newOrder });
+  } catch (error) {
+    return res.status(500).json({ message: "Lỗi khi tạo đơn hàng", error: error.message });
+  }
 });
+
+  
 router.put("/update-status", async (req, res) => {
     const { orderId, status } = req.body;
   

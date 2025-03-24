@@ -6,8 +6,13 @@ var cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 var logger = require('morgan');
 const cors = require('cors');
+const setupSocket = require("./socket/socketIO"); // Import socket.js
+
+const URL_FRONTEND = process.env.URL_FRONTEND;
 //khai bao ket noi db
 const database = require('./config/ConnectDB');
+//thêm socket.io
+
 //khai bao router
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/admin/users');
@@ -29,6 +34,7 @@ var userClientRoutes = require ('./routes/clients/userClient')
 var orderClientRoutes = require ('./routes/clients/orderClient')
 var GHTKShippingRoutes = require ('./routes/API_Third_Party/Shipping/GHTK')
 var paymentClientRoutes = require ('./routes/clients/paymentClient')
+var analysisAdminRoutes = require ('./routes/admin/analysis')
 
 
 var app = express();
@@ -45,7 +51,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Cấu hình CORS
 app.use(cors({
-  origin: 'http://localhost:3001', // Chỉ định nguồn gốc cụ thể
+  origin: URL_FRONTEND, // Chỉ định nguồn gốc cụ thể
   methods: 'GET, POST, PUT, DELETE',
   allowedHeaders: 'Content-Type, Authorization, cache-control', // Thêm cache-control vào danh sách các header được phép
   credentials: true // Cho phép gửi cookie
@@ -71,8 +77,16 @@ app.use("/userClient", userClientRoutes);
 app.use("/orderClient", orderClientRoutes);
 app.use("/shipping", GHTKShippingRoutes);
 app.use("/paymentClient", paymentClientRoutes);
+app.use("/paymentClient", paymentClientRoutes);
+app.use("/analysis", analysisAdminRoutes);
 database.connect();
 
+app.use((req, res, next) => {
+  if (req.path.startsWith("/socket.io/")) {
+    return next();
+  }
+  next();
+});
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
   next(createError(404));

@@ -16,10 +16,16 @@ const orderSchema = new Schema({
     status: { type: String, required: true },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
-    deliveryAdress: {type: String, require: true},
+    deliveryAdress: {
+        province: {type: String, require: true},
+        district: {type: String, require: true},
+        ward: {type: String, require: true},
+        street: {type:String, require: true}
+    },
     deliveryPhoneNumber: {type: String, require: true},
     deliveryName: {type: String, require: true},
     items: [orderItemSchema]
 });
 
 module.exports = mongoose.model('Order', orderSchema);
+//check
