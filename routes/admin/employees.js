@@ -138,4 +138,39 @@ router.get('/:id', authenticate, authorize(['admin', 'manager']), async function
   }
 });
 
+router.get('/all/nopagination', authenticate, authorize(['admin', 'manager', 'PT']), async function (req, res, next) {
+  try {
+    const { role, branch_id } = req.query;
+
+    const filters = {};
+
+    // Apply role-based access control
+    if (req.user.role === 'manager') {
+      // Managers can only see employees from their branch
+      filters.branch_id = req.user.branch_id;
+    }
+
+    // Apply filters from query parameters
+    if (role) {
+      filters.role = role;
+    }
+
+    if (branch_id) {
+      // For managers, enforce their branch_id restriction
+      if (req.user.role === 'manager' && branch_id !== req.user.branch_id) {
+        return res.errorResponse('You can only view employees from your branch', 403);
+      }
+      filters.branch_id = branch_id;
+    }
+
+    const employees = await Employee.find(filters);
+
+    res.successResponse({
+      employees
+    }, 'Fetched all employees successfully');
+  } catch (err) {
+    res.errorResponse('Failed to fetch employees', 500, {}, { error: err.message });
+  }
+});
+
 module.exports = router;

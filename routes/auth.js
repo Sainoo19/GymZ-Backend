@@ -12,7 +12,7 @@ router.use(customResponse);
 
 // Hàm tạo access token cho User
 const generateUserAccessToken = (user) => {
-    return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 // Hàm tạo refresh token cho User
@@ -22,7 +22,7 @@ const generateUserRefreshToken = (user) => {
 
 // Hàm tạo access token cho Employee
 const generateEmployeeAccessToken = (employee) => {
-    return jwt.sign({ id: employee._id, role: employee.role, branch_id: employee.branch_id }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    return jwt.sign({ id: employee._id, role: employee.role, branch_id: employee.branch_id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 // Hàm tạo refresh token cho Employee

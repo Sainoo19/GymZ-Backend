@@ -19,8 +19,6 @@ var usersRouter = require('./routes/admin/users');
 var employeesRouter = require('./routes/admin/employees');
 var branchesRouter = require('./routes/admin/branches');
 var productRouter = require('./routes/admin/products');
-var exercisesRouter = require('./routes/admin/exercises');
-var workoutsRouter = require('./routes/admin/workouts');
 var ordersRouter = require('./routes/admin/orders');
 var paymentsRouter = require('./routes/admin/payments');
 var productCategoryRouter = require('./routes/admin/productCategory');
@@ -29,13 +27,15 @@ var discountsRouter = require('./routes/admin/discounts');
 var authRouter = require('./routes/auth');
 var productClientRouter = require('./routes/clients/productClients')
 var cartClientRouter = require('./routes/clients/cartClient')
-var paymentRoutes = require ('./routes/API_Third_Party/payment/MomoPayment')
-var userClientRoutes = require ('./routes/clients/userClient')
-var orderClientRoutes = require ('./routes/clients/orderClient')
-var GHTKShippingRoutes = require ('./routes/API_Third_Party/Shipping/GHTK')
-var paymentClientRoutes = require ('./routes/clients/paymentClient')
-var analysisAdminRoutes = require ('./routes/admin/analysis')
-
+var paymentRoutes = require('./routes/API_Third_Party/payment/MomoPayment')
+var userClientRoutes = require('./routes/clients/userClient')
+var orderClientRoutes = require('./routes/clients/orderClient')
+var GHTKShippingRoutes = require('./routes/API_Third_Party/Shipping/GHTK')
+var paymentClientRoutes = require('./routes/clients/paymentClient')
+var analysisAdminRoutes = require('./routes/admin/analysis')
+var profileUsersRouter = require('./routes/clients/profileUser')
+var memberRouter = require('./routes/admin/members')
+var trainingSessionRouter = require('./routes/admin/trainningSession')
 
 var app = express();
 
@@ -62,8 +62,6 @@ app.use('/users', usersRouter);
 app.use('/employees', employeesRouter);
 app.use('/branches', branchesRouter);
 app.use('/products', productRouter);
-app.use('/exercises', exercisesRouter);
-app.use('/workouts', workoutsRouter);
 app.use('/orders', ordersRouter);
 app.use('/payments', paymentsRouter);
 app.use('/productCategory', productCategoryRouter);
@@ -77,8 +75,10 @@ app.use("/userClient", userClientRoutes);
 app.use("/orderClient", orderClientRoutes);
 app.use("/shipping", GHTKShippingRoutes);
 app.use("/paymentClient", paymentClientRoutes);
-app.use("/paymentClient", paymentClientRoutes);
 app.use("/analysis", analysisAdminRoutes);
+app.use('/profileUser', profileUsersRouter);
+app.use("/members", memberRouter);
+app.use('/trainningSession', trainingSessionRouter);
 database.connect();
 
 app.use((req, res, next) => {
