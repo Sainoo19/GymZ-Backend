@@ -52,16 +52,15 @@ router.post("/create", authenticate, async (req, res) => {
     // Lưu vào database
     await newOrder.save();
    
-    const employees = await User.find({ role: "staff", fcmToken: { $exists: true } });
+    const notificationPayload = {
+      notification: {
+        title: "Đơn hàng mới!",
+        body: `Có đơn hàng mới từ khách hàng ID: ${user_id}`,
+      },
+      topic: "newOrders",
+    };
 
-    if (employees.length > 0) {
-      const tokens = employees.map(emp => emp.fcmToken);
-      await sendNotification(
-        "📦 Đơn hàng mới!",
-        `Khách hàng ${name} đã đặt đơn hàng trị giá ${totalPrice} VNĐ`,
-        tokens
-      );
-    }
+    await messaging.send(notificationPayload);
 
     return res.status(201).json({ message: "Tạo đơn hàng thành công", order: newOrder });
   } catch (error) {
