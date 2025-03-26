@@ -6,6 +6,7 @@ const User = require("../../models/users"); // Đảm bảo đường dẫn đú
 const generateId = require('../../utils/generateId');
 const {authenticate} = require("../../middlewares/auth")
 const Notification = require("../../models/Notification");
+const Employee = require("../../models/employees");
 const router = express.Router();
 
 // API tạo đơn hàng
@@ -52,8 +53,9 @@ router.post("/create", authenticate, async (req, res) => {
     // Lưu vào database
     await newOrder.save();
    
-    const employees = await User.find({ role: "admin" }); // Lấy danh sách nhân viên
-    for (const employee of employees) {
+    const employees = await Employee.find({ role: "admin" });
+    console.log("🔎 Danh sách admin:", employees);
+        for (const employee of employees) {
       console.log(`🔔 Thêm thông báo cho nhân viên ${employee._id}`);
     
       try {
