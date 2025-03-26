@@ -78,7 +78,7 @@ app.use("/shipping", GHTKShippingRoutes);
 app.use("/paymentClient", paymentClientRoutes);
 app.use("/paymentClient", paymentClientRoutes);
 app.use("/analysis", analysisAdminRoutes);
-app.use("/notification", notificationRoutes);
+app.use("/notifications", notificationRoutes);
 database.connect();
 
 
