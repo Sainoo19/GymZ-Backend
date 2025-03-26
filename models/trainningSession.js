@@ -17,10 +17,24 @@ const trainingSessionSchema = new Schema({
     dayOfWeek: {
         type: String,
         required: true,
-        enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] // Giới hạn giá trị
+        // Giới hạn giá trị
     },
     date: {
         type: Date,
+        required: true
+    },
+    status: {
+        type: String,
+        required: true,
+        enum: ['scheduled', 'completed', 'cancelled'],
+        default: 'scheduled'
+    },
+    startHour: {
+        type: String,
+        required: true
+    },
+    endHour: {
+        type: String,
         required: true
     }
 }, {

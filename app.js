@@ -78,7 +78,7 @@ app.use("/paymentClient", paymentClientRoutes);
 app.use("/analysis", analysisAdminRoutes);
 app.use('/profileUser', profileUsersRouter);
 app.use("/members", memberRouter);
-app.use('/trainningSession', trainingSessionRouter);
+app.use('/trainingSession', trainingSessionRouter);
 database.connect();
 
 app.use((req, res, next) => {
