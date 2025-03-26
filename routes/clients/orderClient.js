@@ -5,7 +5,7 @@ const Order = require("../../models/orders");
 const User = require("../../models/users"); // Đảm bảo đường dẫn đúng
 const generateId = require('../../utils/generateId');
 const {authenticate} = require("../../middlewares/auth")
-
+const Notification = require("../../models/Notification");
 const router = express.Router();
 
 // API tạo đơn hàng
@@ -52,16 +52,30 @@ router.post("/create", authenticate, async (req, res) => {
     // Lưu vào database
     await newOrder.save();
    
-    const notificationPayload = {
-      notification: {
-        title: "Đơn hàng mới!",
-        body: `Có đơn hàng mới từ khách hàng ID: ${user_id}`,
-      },
-      topic: "newOrders",
-    };
+    const employees = await User.find({ role: "admin" }); // Lấy danh sách nhân viên
+    for (const employee of employees) {
+      await Notification.create({
+        employee_id: employee._id,
+        title: "Đơn hàng mới",
+        message: `Có đơn hàng mới với tổng giá trị ${totalPrice} VND`,
+      });
+    }
 
-    await messaging.send(notificationPayload);
+    // 🔥 Gửi thông báo thời gian thực bằng Firebase Cloud Messaging (FCM)
+    const employeeTokens = employees.map(e => e.fcmToken).filter(Boolean); // Lấy token FCM của nhân viên
+    if (employeeTokens.length > 0) {
+      const message = {
+        notification: {
+          title: "Đơn hàng mới!",
+          body: `Có đơn hàng mới với tổng giá trị ${totalPrice} VND`
+        },
+        tokens: employeeTokens // Gửi đến tất cả nhân viên
+      };
 
+      admin.messaging().sendMulticast(message)
+        .then(response => console.log("✅ Gửi thông báo FCM thành công:", response))
+        .catch(error => console.error("❌ Lỗi khi gửi FCM:", error));
+    }
     return res.status(201).json({ message: "Tạo đơn hàng thành công", order: newOrder });
   } catch (error) {
     return res.status(500).json({ message: "Lỗi khi tạo đơn hàng", error: error.message });

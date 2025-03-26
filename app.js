@@ -33,6 +33,7 @@ var orderClientRoutes = require ('./routes/clients/orderClient')
 var GHTKShippingRoutes = require ('./routes/API_Third_Party/Shipping/GHTK')
 var paymentClientRoutes = require ('./routes/clients/paymentClient')
 var analysisAdminRoutes = require ('./routes/admin/analysis')
+var notificationRoutes = require ('./routes/admin/notifications')
 
 
 var app = express();
@@ -77,6 +78,7 @@ app.use("/shipping", GHTKShippingRoutes);
 app.use("/paymentClient", paymentClientRoutes);
 app.use("/paymentClient", paymentClientRoutes);
 app.use("/analysis", analysisAdminRoutes);
+app.use("/notification", notificationRoutes);
 database.connect();
 
 
