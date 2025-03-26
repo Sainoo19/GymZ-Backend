@@ -15,6 +15,7 @@
     "dotenv": "^16.4.7",
     "dvhcvn": "^1.2.20250301",
     "express": "~4.16.1",
+    "firebase-admin": "^13.2.0",
     "hbs": "^4.2.0",
     "http-errors": "~1.6.3",
     "jade": "~1.11.0",

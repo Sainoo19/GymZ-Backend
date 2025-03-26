@@ -6,12 +6,10 @@ var cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 var logger = require('morgan');
 const cors = require('cors');
-const setupSocket = require("./socket/socketIO"); // Import socket.js
 
 const URL_FRONTEND = process.env.URL_FRONTEND;
 //khai bao ket noi db
 const database = require('./config/ConnectDB');
-//thêm socket.io
 
 //khai bao router
 var indexRouter = require('./routes/index');
@@ -81,12 +79,7 @@ app.use("/paymentClient", paymentClientRoutes);
 app.use("/analysis", analysisAdminRoutes);
 database.connect();
 
-app.use((req, res, next) => {
-  if (req.path.startsWith("/socket.io/")) {
-    return next();
-  }
-  next();
-});
+
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
   next(createError(404));

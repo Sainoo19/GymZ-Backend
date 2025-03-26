@@ -5,8 +5,6 @@ const Order = require("../../models/orders");
 const User = require("../../models/users"); // Đảm bảo đường dẫn đúng
 const generateId = require('../../utils/generateId');
 const {authenticate} = require("../../middlewares/auth")
-const io = require("../../socket/socketIO").getIO(); // Import socketIO
-const socketIO = require("../../socket/socketIO"); // Đảm bảo đúng đường dẫn đến module
 
 const router = express.Router();
 
@@ -53,22 +51,17 @@ router.post("/create", authenticate, async (req, res) => {
 
     // Lưu vào database
     await newOrder.save();
-    try {
-      const io = socketIO.getIO();
-      if (!io) {
-        console.warn("Socket.IO chưa sẵn sàng, bỏ qua kết nối.");
-      } else {
-        io.emit("newOrder", {
-          orderId,
-          totalPrice,
-          createdAt: newOrder.createdAt,
-        });
-        console.log("Đã gửi sự kiện 'newOrder'");
-      }
-    } catch (err) {
-      console.error("Lỗi khi gọi getIO:", err.message);
-    }
+   
+    const employees = await User.find({ role: "staff", fcmToken: { $exists: true } });
 
+    if (employees.length > 0) {
+      const tokens = employees.map(emp => emp.fcmToken);
+      await sendNotification(
+        "📦 Đơn hàng mới!",
+        `Khách hàng ${name} đã đặt đơn hàng trị giá ${totalPrice} VNĐ`,
+        tokens
+      );
+    }
 
     return res.status(201).json({ message: "Tạo đơn hàng thành công", order: newOrder });
   } catch (error) {

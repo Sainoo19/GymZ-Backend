@@ -7,7 +7,6 @@
 var app = require('../app');
 var debug = require('debug')('gymz:server');
 var http = require('http');
-var socketIO = require("../socket/socketIO"); // Import socket
 
 /**
  * Get port from environment and store in Express.
@@ -20,20 +19,19 @@ app.set('port', port);
  * Create HTTP server.
  */
 
-var server = http.createServer(app);
+
 
 /**
  * Listen on provided port, on all network interfaces.
- */
-const io = socketIO.init(server);
-app.set("io", io); // Lưu io vào app để có thể truy cập từ các route khác
+ */var server = http.createServer(app);
 
-server.listen(port, () => {
-  console.log(`🚀 Server running on http://localhost:${port}`);
-});
-server.on('error', onError);
-server.on('listening', onListening);
-
+  // Lưu io vào app để có thể truy cập từ các route khác
+ 
+ server.listen(port, () => {
+   console.log(`🚀 Server running on http://localhost:${port}`);
+ });
+ server.on('error', onError);
+ server.on('listening', onListening);
 /**
  * Normalize a port into a number, string, or false.
  */

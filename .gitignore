@@ -8,6 +8,7 @@ npm-debug.log*
 
 # Environment variables
 .env
+serviceAccountKey.json
 
 # Miscellaneous
 .DS_Store
