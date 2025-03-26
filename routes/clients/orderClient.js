@@ -54,12 +54,22 @@ router.post("/create", authenticate, async (req, res) => {
    
     const employees = await User.find({ role: "admin" }); // Lấy danh sách nhân viên
     for (const employee of employees) {
-      await Notification.create({
-        employee_id: employee._id,
-        title: "Đơn hàng mới",
-        message: `Có đơn hàng mới với tổng giá trị ${totalPrice} VND`,
-      });
+      console.log(`🔔 Thêm thông báo cho nhân viên ${employee._id}`);
+    
+      try {
+        const newNotification = await Notification.create({
+          employee_id: employee._id,
+          title: "Đơn hàng mới",
+          message: `Có đơn hàng mới với tổng giá trị ${totalPrice} VND`,
+        });
+    
+        console.log("✅ Thêm thành công:", newNotification);
+      } catch (error) {
+        console.error("❌ Lỗi khi thêm notification:", error);
+      }
     }
+    
+    console.log("Danh sách nhân viên admin:", employees);
 
     // 🔥 Gửi thông báo thời gian thực bằng Firebase Cloud Messaging (FCM)
     const employeeTokens = employees.map(e => e.fcmToken).filter(Boolean); // Lấy token FCM của nhân viên

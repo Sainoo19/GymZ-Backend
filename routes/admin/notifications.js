@@ -2,6 +2,7 @@ const express = require("express");
 const Notification = require("../../models/Notification");
 const router = express.Router();
 const { authenticate } = require("../../middlewares/auth");
+
 router.get("/", authenticate, async (req, res) => {
     try {
       const notifications = await Notification.find({ employee_id: req.user.id }).sort({ createdAt: -1 });
