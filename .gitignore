@@ -9,6 +9,7 @@ npm-debug.log*
 # Environment variables
 .env
 serviceAccountKey.json
+firebase-key.json
 
 # Miscellaneous
 .DS_Store

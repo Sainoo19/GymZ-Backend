@@ -8,6 +8,23 @@ const {authenticate} = require("../../middlewares/auth")
 const Notification = require("../../models/Notification");
 const Employee = require("../../models/employees");
 const router = express.Router();
+const { db, admin } = require("../../config/firebase"); // Import Firestore
+
+
+
+async function saveNotificationToFirestore(employeeId, title, message) {
+  try {
+    await db.collection("notifications").add({
+      employee_id: employeeId,
+      title,
+      message,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(), // Thời gian thực
+    });
+    console.log("✅ Lưu thông báo vào Firestore thành công!");
+  } catch (error) {
+    console.error("❌ Lỗi khi lưu thông báo vào Firestore:", error);
+  }
+}
 
 // API tạo đơn hàng
 router.post("/create", authenticate, async (req, res) => {
@@ -55,39 +72,27 @@ router.post("/create", authenticate, async (req, res) => {
    
     const employees = await Employee.find({ role: "admin" });
     console.log("🔎 Danh sách admin:", employees);
-        for (const employee of employees) {
-      console.log(`🔔 Thêm thông báo cho nhân viên ${employee._id}`);
-    
-      try {
-        const newNotification = await Notification.create({
-          employee_id: employee._id,
-          title: "Đơn hàng mới",
-          message: `Có đơn hàng mới với tổng giá trị ${totalPrice} VND`,
-        });
-    
-        console.log("✅ Thêm thành công:", newNotification);
-      } catch (error) {
-        console.error("❌ Lỗi khi thêm notification:", error);
-      }
+    for (const employee of employees) {
+      await saveNotificationToFirestore(employee._id, "Đơn hàng mới", `Có đơn hàng mới trị giá ${totalPrice} VND`);
     }
-    
-    console.log("Danh sách nhân viên admin:", employees);
 
-    // 🔥 Gửi thông báo thời gian thực bằng Firebase Cloud Messaging (FCM)
-    const employeeTokens = employees.map(e => e.fcmToken).filter(Boolean); // Lấy token FCM của nhân viên
+
+    // 🔥 Gửi thông báo FCM
+    const employeeTokens = employees.map(e => e.fcmToken).filter(Boolean);
     if (employeeTokens.length > 0) {
       const message = {
         notification: {
           title: "Đơn hàng mới!",
-          body: `Có đơn hàng mới với tổng giá trị ${totalPrice} VND`
+          body: `Có đơn hàng mới với tổng giá trị ${totalPrice} VND`,
         },
-        tokens: employeeTokens // Gửi đến tất cả nhân viên
+        tokens: employeeTokens
       };
 
       admin.messaging().sendMulticast(message)
         .then(response => console.log("✅ Gửi thông báo FCM thành công:", response))
         .catch(error => console.error("❌ Lỗi khi gửi FCM:", error));
     }
+
     return res.status(201).json({ message: "Tạo đơn hàng thành công", order: newOrder });
   } catch (error) {
     return res.status(500).json({ message: "Lỗi khi tạo đơn hàng", error: error.message });
