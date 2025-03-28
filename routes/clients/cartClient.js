@@ -79,6 +79,22 @@ router.post("/add", authenticate, async (req, res) => {
         res.status(500).json({ message: "Lỗi server" });
     }
 });
+
+router.get('/count-item', authenticate, async (req, res) => {
+    try {
+      const userId = req.user.id; 
+      const cart = await Cart.findOne({ user_id: userId });
+      if (!cart) {
+        return res.json({ count: 0 });
+      }
+      const count = cart.items.reduce((total, item) => total + item.quantity, 0);
+      return res.json({ count });
+    } catch (error) {
+      return res.status(500).json({ message: "Lỗi khi đếm số lượng đơn hàng", error: error.message });
+    }
+  });
+  
+
 // Lấy tất cả giỏ hàng trong hệ thống
 router.get("/all", authenticate, async (req, res) => {
     try {
