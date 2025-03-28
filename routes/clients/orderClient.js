@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const Order = require("../../models/orders");
+const Product = require("../../models/products");
 const User = require("../../models/users"); // Đảm bảo đường dẫn đúng
 const generateId = require("../../utils/generateId");
 const { authenticate } = require("../../middlewares/auth");
@@ -33,54 +34,28 @@ async function saveNotificationToFirestore(
 // API tạo đơn hàng
 router.post("/create", authenticate, async (req, res) => {
   
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const {
-      user_id,
-      totalPrice,
-      status,
-      deliveryAddress,
-      createdAt,
-      updatedAt,
-      items,
+    const { 
+      user_id, totalPrice, status, deliveryAddress, createdAt, updatedAt, items 
     } = req.body;
 
-    // Kiểm tra thông tin bắt buộc
-    if (
-      !user_id ||
-      !totalPrice ||
-      !status ||
-      !deliveryAddress ||
-      !items ||
-      !Array.isArray(items) ||
-      items.length === 0
-    ) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Thiếu thông tin đơn hàng hoặc danh sách sản phẩm không hợp lệ",
-        });
+    // Kiểm tra thông tin bắt buộc...
+    if (!user_id || !totalPrice || !status || !deliveryAddress || !items || !Array.isArray(items) || items.length === 0) {
+      throw new Error("Thiếu thông tin đơn hàng hoặc danh sách sản phẩm không hợp lệ");
     }
-
-    // Kiểm tra các trường trong deliveryAddress
-    const { provinceName, districtName, wardName, street, name, phone } =
-      deliveryAddress;
-    if (
-      !provinceName ||
-      !districtName ||
-      !wardName ||
-      !street ||
-      !name ||
-      !phone
-    ) {
-      return res
-        .status(400)
-        .json({ message: "Thiếu thông tin địa chỉ giao hàng" });
+    
+    // Kiểm tra các trường của deliveryAddress...
+    const { provinceName, districtName, wardName, street, name, phone } = deliveryAddress;
+    if (!provinceName || !districtName || !wardName || !street || !name || !phone) {
+      throw new Error("Thiếu thông tin địa chỉ giao hàng");
     }
-
+    
     // Tạo ID duy nhất cho đơn hàng
     const orderId = await generateId("ORD");
-
+    
     // Tạo đơn hàng mới
     const newOrder = new Order({
       _id: orderId,
@@ -99,49 +74,57 @@ router.post("/create", authenticate, async (req, res) => {
       createdAt: createdAt || Date.now(),
       updatedAt: updatedAt || Date.now(),
     });
-
-    // Lưu vào database
-    await newOrder.save();
-
-    const employees = await Employee.find({ role: "admin" });
-    console.log("🔎 Danh sách admin:", employees);
+    
+    // Lưu đơn hàng trong session
+    await newOrder.save({ session });
+    
+    // Cập nhật kho: lặp qua từng sản phẩm trong đơn hàng
+    for (const item of items) {
+      const { product_id, category, theme, quantity } = item;
+      const product = await Product.findOne({
+        _id: product_id,
+        "variations.category": category,
+        ...(theme && { "variations.theme": theme }),
+      }).session(session);
+      
+      if (!product) {
+        throw new Error(`Không tìm thấy sản phẩm với ID: ${product_id}`);
+      }
+      
+      const variation = product.variations.find(v => v.category === category && (!theme || v.theme === theme));
+      if (!variation) {
+        throw new Error(`Không tìm thấy biến thể phù hợp cho sản phẩm ${product.name}.`);
+      }
+      
+      if (variation.stock < quantity) {
+        throw new Error(`Sản phẩm ${product.name} không đủ hàng.`);
+      }
+      
+      // Trừ số lượng kho
+      variation.stock -= quantity;
+      await product.save({ session });
+    }
+    
+    // Gửi thông báo cho admin, cập nhật Firestore, v.v... (bạn cũng có thể thực hiện trong transaction nếu cần)
+    const employees = await Employee.find({ role: "admin" }).session(session);
     for (const employee of employees) {
       await saveNotificationToFirestore(
         employee._id,
         "Đơn hàng mới",
-        `Có đơn hàng mới trị giá ${formatCurrency(totalPrice)} VND`, 
+        `Có đơn hàng mới trị giá ${formatCurrency(totalPrice)} VND`,
         orderId
       );
     }
-
-    // 🔥 Gửi thông báo FCM
-    const employeeTokens = employees.map((e) => e.fcmToken).filter(Boolean);
-    if (employeeTokens.length > 0) {
-      const message = {
-        notification: {
-          title: "Đơn hàng mới!",
-          body: `Có đơn hàng mới với tổng giá trị ${totalPrice} VND`,
-          orderId: orderId,
-        },
-        tokens: employeeTokens,
-      };
-
-      admin
-        .messaging()
-        .sendMulticast(message)
-        .then((response) =>
-          console.log("✅ Gửi thông báo FCM thành công:", response)
-        )
-        .catch((error) => console.error("❌ Lỗi khi gửi FCM:", error));
-    }
-
-    return res
-      .status(201)
-      .json({ message: "Tạo đơn hàng thành công", order: newOrder });
+    
+    // Commit transaction nếu tất cả đều thành công
+    await session.commitTransaction();
+    session.endSession();
+    
+    return res.status(201).json({ message: "Tạo đơn hàng thành công", order: newOrder });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Lỗi khi tạo đơn hàng", error: error.message });
+    await session.abortTransaction();
+    session.endSession();
+    return res.status(500).json({ message: "Lỗi khi tạo đơn hàng", error: error.message });
   }
 });
 
