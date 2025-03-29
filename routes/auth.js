@@ -31,16 +31,27 @@ const generateEmployeeRefreshToken = (employee) => {
 };
 
 router.post('/register/user', async (req, res) => {
-    const { email, password, phone, name, address } = req.body;
-
     try {
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.errorResponse('Email already exists', 400);
+        const { email, password, phone, name, address } = req.body;
+
+        // Kiểm tra đầu vào
+        if (!email || !password || !phone || !name || !address) {
+            return res.status(400).json({ status: 'error', message: 'Vui lòng điền đầy đủ thông tin' });
         }
 
+        // Kiểm tra email đã tồn tại chưa
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ status: 'error', message: 'Email đã tồn tại' });
+        }
+
+        // Băm mật khẩu
         const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // Tạo ID mới
         const newUserId = await generateId('US');
+
+        // Tạo người dùng mới
         const newUser = new User({
             _id: newUserId,
             email,
@@ -49,14 +60,21 @@ router.post('/register/user', async (req, res) => {
             name,
             role: 'user',
             status: 'active',
-            address
+            avatar: '',
+            address: {
+                province: address.city || '',
+                district: address.district || '',
+                ward: address.ward || '',
+                street: address.street || ''
+            }
         });
 
         await newUser.save();
-        res.successResponse({ message: 'User registered successfully' }, 'User registered successfully', 201);
+
+        return res.status(201).json({ status: 'success', message: 'Đăng ký thành công' });
     } catch (error) {
-        console.error('Error registering user:', error);
-        res.errorResponse('Server error', 500, { error });
+        console.error('Lỗi đăng ký người dùng:', error);
+        return res.status(500).json({ status: 'error', message: 'Lỗi server', error: error.message });
     }
 });
 
