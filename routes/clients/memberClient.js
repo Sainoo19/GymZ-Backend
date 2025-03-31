@@ -620,4 +620,181 @@ router.post('/book-session', authenticate, async function (req, res, next) {
     }
 });
 
+/* PATCH update an existing training session */
+router.patch('/update-session/:id', authenticate, async function (req, res, next) {
+    try {
+        // Find the existing session
+        const session = await TrainingSession.findById(req.params.id);
+
+        if (!session) {
+            return res.errorResponse('Không tìm thấy buổi tập', 404);
+        }
+
+        // Verify that this session belongs to the logged-in user
+        if (session.userID !== req.user.id) {
+            return res.errorResponse('Bạn không có quyền cập nhật buổi tập này', 403);
+        }
+
+        // Check if the session is already completed or cancelled
+        if (session.status !== 'scheduled') {
+            return res.errorResponse(`Không thể cập nhật buổi tập có trạng thái "${session.status}"`, 400);
+        }
+
+        // Check if the session is within 24 hours
+        const sessionDate = new Date(session.date);
+        const sessionStartTime = session.startHour.split(':').map(Number);
+        sessionDate.setHours(sessionStartTime[0], sessionStartTime[1], 0, 0);
+
+        const now = new Date();
+        const timeDiff = sessionDate - now;
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+
+        if (hoursDiff < 24) {
+            return res.errorResponse(
+                'Không thể cập nhật buổi tập diễn ra trong vòng 24 giờ tới',
+                400
+            );
+        }
+
+        const { date, startHour, endHour } = req.body;
+
+        // Ensure only allowed fields are being updated
+        const allowedUpdates = ['date', 'startHour', 'endHour'];
+        const requestedUpdates = Object.keys(req.body);
+
+        const isValidOperation = requestedUpdates.every(update => allowedUpdates.includes(update));
+        if (!isValidOperation) {
+            return res.errorResponse('Chỉ được phép cập nhật ngày và giờ tập', 400);
+        }
+
+        // Get current member status to ensure active membership
+        const member = await Member.findOne({ userID: req.user.id });
+        if (!member) {
+            return res.errorResponse('Không tìm thấy thông tin hội viên', 404);
+        }
+
+        const today = new Date();
+        const validUntil = new Date(member.validUntil);
+
+        if (member.status !== 'ACTIVE' || today > validUntil) {
+            return res.errorResponse('Gói hội viên của bạn không còn hiệu lực, vui lòng gia hạn', 403);
+        }
+
+        // Validate date if provided
+        let newSessionDate = sessionDate;
+        if (date) {
+            newSessionDate = new Date(date);
+            if (isNaN(newSessionDate)) {
+                return res.errorResponse('Định dạng ngày không hợp lệ', 400);
+            }
+
+            // Check session date isn't in the past
+            if (newSessionDate < today) {
+                return res.errorResponse('Không thể đặt lịch cho các ngày đã qua', 400);
+            }
+
+            // Check session date is within membership validity period
+            if (newSessionDate > validUntil) {
+                return res.errorResponse(
+                    'Không thể đặt lịch tập sau ngày hết hạn của gói hội viên (' +
+                    validUntil.toLocaleDateString('vi-VN') + ')',
+                    400
+                );
+            }
+        }
+
+        // Validate time format if provided
+        let newStartHour = session.startHour;
+        let newEndHour = session.endHour;
+
+        const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+
+        if (startHour) {
+            if (!timeRegex.test(startHour)) {
+                return res.errorResponse('Định dạng giờ bắt đầu không hợp lệ. Sử dụng định dạng HH:MM (24 giờ)', 400);
+            }
+            newStartHour = startHour;
+        }
+
+        if (endHour) {
+            if (!timeRegex.test(endHour)) {
+                return res.errorResponse('Định dạng giờ kết thúc không hợp lệ. Sử dụng định dạng HH:MM (24 giờ)', 400);
+            }
+            newEndHour = endHour;
+        }
+
+        // Validate that end time is after start time
+        const [startHr, startMin] = newStartHour.split(':').map(Number);
+        const [endHr, endMin] = newEndHour.split(':').map(Number);
+
+        const startMinutes = startHr * 60 + startMin;
+        const endMinutes = endHr * 60 + endMin;
+
+        if (endMinutes <= startMinutes) {
+            return res.errorResponse('Giờ kết thúc phải sau giờ bắt đầu', 400);
+        }
+
+        // Check for scheduling conflicts
+        try {
+            const conflicts = await checkSchedulingConflicts(
+                req.user.id,
+                session.employeeID,
+                newSessionDate,
+                newStartHour,
+                newEndHour,
+                session._id // Exclude current session from conflict check
+            );
+
+            if (conflicts.hasConflicts) {
+                let conflictMessage = 'Phát hiện xung đột lịch tập: ';
+
+                if (conflicts.userConflicts.length > 0) {
+                    conflictMessage += `Bạn đã có ${conflicts.userConflicts.length} buổi tập khác trong khung giờ này. `;
+                }
+
+                if (conflicts.employeeConflicts.length > 0) {
+                    conflictMessage += `Huấn luyện viên đã có ${conflicts.employeeConflicts.length} buổi tập khác trong khung giờ này.`;
+                }
+
+                return res.errorResponse(conflictMessage, 409, conflicts);
+            }
+        } catch (conflictError) {
+            return res.errorResponse(conflictError.message, 400);
+        }
+
+        // Update the session with new values
+        if (date) {
+            session.date = newSessionDate;
+            // Update day of week if date changes
+            const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            session.dayOfWeek = daysOfWeek[newSessionDate.getDay()];
+        }
+
+        if (startHour) {
+            session.startHour = newStartHour;
+        }
+
+        if (endHour) {
+            session.endHour = newEndHour;
+        }
+
+        await session.save();
+
+        // Get trainer details for response
+        const trainer = await Employee.findById(session.employeeID);
+        const trainerDetails = trainer ? await User.findById(trainer.userID).select('name avatar') : null;
+
+        // Return updated session with trainer details
+        const sessionResponse = {
+            ...session.toObject(),
+            trainer: trainerDetails || null
+        };
+
+        res.successResponse(sessionResponse, 'Cập nhật buổi tập thành công');
+    } catch (err) {
+        console.error('Error updating session:', err);
+        res.errorResponse('Không thể cập nhật buổi tập', 500, {}, { error: err.message });
+    }
+});
+
 module.exports = router;

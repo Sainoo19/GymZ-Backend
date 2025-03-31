@@ -53,7 +53,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Cấu hình CORS
 app.use(cors({
   origin: URL_FRONTEND, // Chỉ định nguồn gốc cụ thể
-  methods: 'GET, POST, PUT, DELETE',
+  methods: 'GET, POST, PUT, DELETE, PATCH, OPTIONS', // Các phương thức HTTP được phép
   allowedHeaders: 'Content-Type, Authorization, cache-control', // Thêm cache-control vào danh sách các header được phép
   credentials: true // Cho phép gửi cookie
 }));

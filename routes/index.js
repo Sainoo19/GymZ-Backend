@@ -40,5 +40,69 @@ router.get('/:branchId/employees', async function (req, res, next) {
   }
 });
 
+/* GET training sessions for an employee on a specific date */
+router.get('/employee/:employeeId/sessions', async function (req, res, next) {
+  try {
+    const { employeeId } = req.params;
+    const { date } = req.query;
+
+    // Validate that date parameter is provided
+    if (!date) {
+      return res.errorResponse('Thiếu tham số ngày (date)', 400);
+    }
+
+    // Validate date format
+    const sessionDate = new Date(date);
+    if (isNaN(sessionDate)) {
+      return res.errorResponse('Định dạng ngày không hợp lệ, sử dụng định dạng YYYY-MM-DD', 400);
+    }
+
+    // Create date range for the entire day
+    const startOfDay = new Date(sessionDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(sessionDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Find all sessions for this employee on the given date
+    const sessions = await TrainingSession.find({
+      employeeID: employeeId,
+      date: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    }).sort({ startHour: 1 });
+
+    // Get user details for each session
+    const sessionsWithUserDetails = await Promise.all(
+      sessions.map(async (session) => {
+        const user = await User.findById(session.userID, 'name avatar');
+        return {
+          ...session.toObject(),
+          user: user ? {
+            name: user.name,
+            avatar: user.avatar
+          } : null
+        };
+      })
+    );
+
+    // Return the sessions with additional metadata
+    res.successResponse(
+      sessionsWithUserDetails,
+      `Lấy danh sách buổi tập của huấn luyện viên ngày ${sessionDate.toLocaleDateString('vi-VN')} thành công`,
+      200,
+      {
+        employeeId,
+        date: sessionDate.toISOString().split('T')[0],
+        sessionCount: sessions.length
+      }
+    );
+  } catch (err) {
+    console.error("Error fetching employee sessions:", err);
+    res.errorResponse('Không thể lấy danh sách buổi tập', 500, {}, { error: err.message });
+  }
+});
+
 
 module.exports = router;
