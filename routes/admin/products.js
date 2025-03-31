@@ -17,7 +17,7 @@ router.get('/all/nopagination', async function (req, res, next) {
         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
     }
 });
-// GET all products with filters and pagination
+// GET all products with filters and pagination (cập nhật thêm min/max price)
 router.get('/all', async function (req, res) {
     try {
         const { page = 1, limit = 10, category, priceMin, priceMax, search, sortBy } = req.query;
@@ -37,21 +37,20 @@ router.get('/all', async function (req, res) {
         if (search) {
             const searchRegex = new RegExp(search, 'i');
             filters.$or = [
-                { name: searchRegex }, // Tìm theo tên sản phẩm
-                { category: searchRegex } // Tìm theo danh mục sản phẩm
+                { name: searchRegex },
+                { category: searchRegex }
             ];
         }
 
-        // Xác định cách sắp xếp theo giá
         let sortOption = {};
         if (sortBy === 'priceAsc') {
-            sortOption = { 'variations.salePrice': 1 }; // Sắp xếp giá tăng dần
+            sortOption = { 'variations.salePrice': 1 };
         } else if (sortBy === 'priceDesc') {
-            sortOption = { 'variations.salePrice': -1 }; // Sắp xếp giá giảm dần
+            sortOption = { 'variations.salePrice': -1 };
         }
 
         const products = await Product.find(filters)
-            .sort(sortOption) // Thêm sắp xếp
+            .sort(sortOption)
             .limit(parseInt(limit))
             .skip((parseInt(page) - 1) * parseInt(limit))
             .populate('category', 'name')
@@ -59,8 +58,27 @@ router.get('/all', async function (req, res) {
 
         const count = await Product.countDocuments(filters);
 
+        // Lấy giá thấp nhất và cao nhất của mỗi sản phẩm
+        const productsWithPriceRange = products.map(product => {
+            if (!product.variations || product.variations.length === 0) {
+                return {
+                    ...product.toObject(),
+                    minPrice: 0,
+                    maxPrice: 0
+                };
+            }
+            const prices = product.variations.map(v => v.salePrice);
+            const minPrice = Math.min(...prices);
+            const maxPrice = Math.max(...prices);
+            return {
+                ...product.toObject(),
+                minPrice,
+                maxPrice
+            };
+        });
+
         res.successResponse({
-            products
+            products: productsWithPriceRange
         }, 'Fetched all products successfully', 200, {
             totalProducts: count,
             pageSize: parseInt(limit),
