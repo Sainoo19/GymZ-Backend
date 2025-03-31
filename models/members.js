@@ -17,28 +17,44 @@ const memberSchema = new Schema({
     },
     validFrom: {
         type: Date,
-        required: true
+        required: false,
+        default: null
     },
     validUntil: {
         type: Date,
-        required: true,
+        required: false,
         validate: {
             validator: function (value) {
-                return this.validFrom < value; // Đảm bảo validUntil lớn hơn validFrom
+                // Chỉ kiểm tra nếu cả hai giá trị không phải null
+                if (value && this.validFrom) {
+                    return this.validFrom < value;
+                }
+                // Nếu một hoặc cả hai là null, bỏ qua kiểm tra
+                return true;
             },
             message: 'validUntil must be greater than validFrom'
-        }
+        },
+        default: null
     },
     branchID: {
         type: String,
         required: true,
-
     },
     employeeID: {
         type: String,
         required: false,
         default: null
-
+    },
+    registerDate: {
+        type: Date,
+        required: true,
+        default: Date.now // Ngày đăng ký mặc định là ngày hiện tại
+    },
+    status: {
+        type: String,
+        required: true,
+        enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED'], // Trạng thái thành viên
+        default: 'ACTIVE'
     }
 }, {
     timestamps: true // Tự động thêm createdAt và updatedAt

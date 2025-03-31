@@ -4,6 +4,7 @@ const User = require('../../models/users'); // Assuming you have a User model
 const customResponse = require('../../utils/customResponse');
 const generateId = require('../../utils/generateId');
 const { authenticate, authorize } = require('../../middlewares/auth');
+const MemberBill = require('../../models/memberBill');
 const router = express.Router();
 
 // Sử dụng middleware customResponse
@@ -218,6 +219,93 @@ router.get('/:id', authenticate, authorize(['admin', 'manager', 'PT']), async fu
         }, 'Fetched member successfully');
     } catch (err) {
         res.errorResponse('Failed to fetch member', 500, {}, { error: err.message });
+    }
+});
+
+/* POST xác nhận thanh toán */
+router.post('/confirm-payment', authenticate, authorize(['admin', 'manager', 'staff']), async function (req, res, next) {
+    try {
+        const { billId, paymentMethod } = req.body;
+
+        // Validate input
+        if (!billId || !paymentMethod) {
+            return res.errorResponse('Thiếu thông tin thanh toán cần thiết', 400);
+        }
+
+        // Validate paymentMethod
+        const validPaymentMethods = ['CASH', 'CREDIT_CARD', 'BANK_TRANSFER', 'MOBILE_PAYMENT'];
+        if (!validPaymentMethods.includes(paymentMethod)) {
+            return res.errorResponse('Phương thức thanh toán không hợp lệ', 400);
+        }
+
+        // Tìm bill
+        const bill = await MemberBill.findById(billId);
+        if (!bill) {
+            return res.errorResponse('Không tìm thấy hóa đơn', 404);
+        }
+
+        // Tìm member
+        const member = await Member.findById(bill.memberID);
+        if (!member) {
+            return res.errorResponse('Không tìm thấy thông tin hội viên', 404);
+        }
+
+        // Kiểm tra trạng thái thanh toán
+        if (bill.paymentDate) {
+            return res.errorResponse('Hóa đơn này đã được thanh toán', 400);
+        }
+
+        // Cập nhật thông tin thanh toán
+        const today = new Date();
+        bill.paymentDate = today;
+        bill.paymentMethod = paymentMethod;
+
+        // Cập nhật thông tin hội viên
+        member.validFrom = today;
+
+        // Tính ngày hết hạn dựa vào mô tả hóa đơn
+        // Lấy thời hạn từ mô tả hóa đơn (ví dụ: "Đăng ký gói GOLD - 3 tháng")
+        const durationMatch = bill.description.match(/(\d+) tháng/);
+
+        if (durationMatch && durationMatch[1]) {
+            const duration = parseInt(durationMatch[1]);
+            const validUntil = new Date(today);
+            validUntil.setMonth(validUntil.getMonth() + duration);
+            member.validUntil = validUntil;
+        } else {
+            // Mặc định 1 tháng nếu không tìm thấy
+            const validUntil = new Date(today);
+            validUntil.setMonth(validUntil.getMonth() + 1);
+            member.validUntil = validUntil;
+        }
+
+        // Cập nhật trạng thái hội viên
+        member.status = 'ACTIVE';
+
+        // Lưu các thay đổi
+        await bill.save();
+        await member.save();
+
+        res.successResponse({
+            member: {
+                id: member._id,
+                type: member.type,
+                validFrom: member.validFrom,
+                validUntil: member.validUntil,
+                branchID: member.branchID,
+                employeeID: member.employeeID,
+                status: member.status
+            },
+            payment: {
+                id: bill._id,
+                amount: bill.amount,
+                paymentDate: bill.paymentDate,
+                paymentMethod: bill.paymentMethod,
+                description: bill.description
+            }
+        }, 'Thanh toán thành công, gói hội viên đã được kích hoạt');
+    } catch (err) {
+        res.errorResponse('Không thể xử lý thanh toán', 500, {}, { error: err.message });
     }
 });
 

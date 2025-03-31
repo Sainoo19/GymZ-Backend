@@ -35,8 +35,9 @@ var paymentClientRoutes = require('./routes/clients/paymentClient')
 var analysisAdminRoutes = require('./routes/admin/analysis')
 var profileUsersRouter = require('./routes/clients/profileUser')
 var memberRouter = require('./routes/admin/members')
+var memberBillRouter = require('./routes/admin/memberBill')
 var trainingSessionRouter = require('./routes/admin/trainningSession')
-
+var membershipRouter = require('./routes/clients/memberClient')
 var app = express();
 
 // view engine setup
@@ -57,7 +58,7 @@ app.use(cors({
   credentials: true // Cho phép gửi cookie
 }));
 
-app.use('/', indexRouter);
+app.use('/home', indexRouter);
 app.use('/users', usersRouter);
 app.use('/employees', employeesRouter);
 app.use('/branches', branchesRouter);
@@ -78,7 +79,9 @@ app.use("/paymentClient", paymentClientRoutes);
 app.use("/analysis", analysisAdminRoutes);
 app.use('/profileUser', profileUsersRouter);
 app.use("/members", memberRouter);
+app.use("/membersBill", memberBillRouter);
 app.use('/trainingSession', trainingSessionRouter);
+app.use('/membership', membershipRouter);
 database.connect();
 
 app.use((req, res, next) => {
