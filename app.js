@@ -6,6 +6,7 @@ var cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 var logger = require('morgan');
 const cors = require('cors');
+const passport = require("./routes/API_Third_Party/config/passport");
 
 const URL_FRONTEND = process.env.URL_FRONTEND;
 //khai bao ket noi db
@@ -47,6 +48,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(passport.initialize());
 
 // Cấu hình CORS
 app.use(cors({
