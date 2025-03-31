@@ -137,4 +137,6 @@ router.post('/logout', (req, res) => {
     res.clearCookie('refreshToken');
     res.json({ message: 'Logged out successfully' });
 });
+
+
 module.exports = router;

@@ -21,6 +21,7 @@ router.get('/profile', authenticate, async function (req, res, next) {
     res.errorResponse('Failed to fetch employee profile', 500, {}, { error: err.message });
   }
 });
+
 /* GET all employees from database. */
 router.get('/all', authenticate, authorize(['admin', 'manager']), async function (req, res, next) {
   try {

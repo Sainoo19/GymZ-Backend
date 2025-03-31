@@ -35,9 +35,8 @@ var paymentClientRoutes = require('./routes/clients/paymentClient')
 var analysisAdminRoutes = require('./routes/admin/analysis')
 var profileUsersRouter = require('./routes/clients/profileUser')
 var memberRouter = require('./routes/admin/members')
-var memberBillRouter = require('./routes/admin/memberBill')
 var trainingSessionRouter = require('./routes/admin/trainningSession')
-var membershipRouter = require('./routes/clients/memberClient')
+
 var app = express();
 
 // view engine setup
@@ -53,12 +52,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Cấu hình CORS
 app.use(cors({
   origin: URL_FRONTEND, // Chỉ định nguồn gốc cụ thể
-  methods: 'GET, POST, PUT, DELETE, PATCH, OPTIONS', // Các phương thức HTTP được phép
+  methods: 'GET, POST, PUT, DELETE',
   allowedHeaders: 'Content-Type, Authorization, cache-control', // Thêm cache-control vào danh sách các header được phép
   credentials: true // Cho phép gửi cookie
 }));
 
-app.use('/home', indexRouter);
+app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/employees', employeesRouter);
 app.use('/branches', branchesRouter);
@@ -79,9 +78,7 @@ app.use("/paymentClient", paymentClientRoutes);
 app.use("/analysis", analysisAdminRoutes);
 app.use('/profileUser', profileUsersRouter);
 app.use("/members", memberRouter);
-app.use("/membersBill", memberBillRouter);
-app.use('/trainingSession', trainingSessionRouter);
-app.use('/membership', membershipRouter);
+app.use('/trainningSession', trainingSessionRouter);
 database.connect();
 
 app.use((req, res, next) => {
