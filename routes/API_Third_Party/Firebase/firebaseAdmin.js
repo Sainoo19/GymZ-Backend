@@ -19,4 +19,6 @@ const sendNotification = async (title, body, token) => {
   }
 };
 
+const db = admin.firestore();
+
 module.exports = { sendNotification };

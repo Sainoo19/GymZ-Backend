@@ -3,6 +3,7 @@ const Discount = require('../../models/discounts'); // Assuming you have a Disco
 const customResponse = require('../../utils/customResponse');
 const generateId = require('../../utils/generateId');
 const router = express.Router();
+const { authenticate, authorize } = require('../../middlewares/auth');
 
 // Sử dụng middleware customResponse
 router.use(customResponse);
@@ -74,6 +75,55 @@ router.post('/create', async function (req, res, next) {
         res.errorResponse('Failed to create discount', 500, {}, { error: err.message });
     }
 });
+
+router.post("/create-discount-combo", authenticate, authorize(["admin", "manager"]), async (req, res) => {
+    try {
+        const { selectedCombos, discountPercent, validFrom, validUntil,description, usageLimit, code } = req.body;
+
+        // Kiểm tra dữ liệu đầu vào
+        if (!selectedCombos || selectedCombos.length === 0) {
+            return res.status(400).json({ error: "Chưa chọn sản phẩm nào để tạo khuyến mãi" });
+        }
+        if (!discountPercent || discountPercent <= 0) {
+            return res.status(400).json({ error: "Mức giảm giá không hợp lệ" });
+        }
+        if (!validFrom || !validUntil) {
+            return res.status(400).json({ error: "Ngày áp dụng không hợp lệ" });
+        }
+        if (!usageLimit || usageLimit <= 0) {
+            return res.status(400).json({ error: "Giới hạn sử dụng không hợp lệ" });
+        }
+
+        // Chuyển danh sách combo thành danh sách sản phẩm áp dụng
+        const applicableProducts = selectedCombos.flatMap(combo => combo.split("-"));
+        
+        // Tạo ID mới cho khuyến mãi
+        const newDiscountId = await generateId('DIS');
+
+        // Tạo mã giảm giá mới
+        const newDiscount = new Discount({
+            _id: newDiscountId,
+            code, // Tạo mã giảm giá duy nhất
+            description,
+            discountPercent,
+            validFrom: new Date(validFrom),
+            validUntil: new Date(validUntil),
+            usageLimit,
+            applicableProducts,
+            status: "active",
+        });
+
+        // Lưu vào database
+        await newDiscount.save();
+
+        res.status(201).json({ message: "Khuyến mãi đã được tạo thành công!", discount: newDiscount });
+
+    } catch (error) {
+        console.error("Lỗi khi tạo khuyến mãi:", error);
+        res.status(500).json({ error: "Lỗi server, không thể tạo khuyến mãi" });
+    }
+});
+
 
 /* PUT update an existing discount */
 router.put('/update/:id', async function (req, res, next) {

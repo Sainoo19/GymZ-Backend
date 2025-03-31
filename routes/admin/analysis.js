@@ -3,9 +3,99 @@ const Order = require("../../models/orders");
 const Product = require("../../models/products");
 const ProductCategory = require("../../models/productCategories");
 const mongoose = require("mongoose");
+const { authenticate, authorize } = require('../../middlewares/auth');
 
 const router = express.Router();
 const statusOrder = "Đặt hàng thành công"
+
+
+
+router.get("/frequently-bought-together", authenticate, authorize(['admin', 'manager']), async (req, res) => {
+    try {
+        // 1. Lấy ngày giới hạn (60 ngày trước)
+        const sixtyDaysAgo = new Date();
+        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+        // 2. Lọc đơn hàng trong 60 ngày gần nhất
+        const orders = await Order.find({ createdAt: { $gte: sixtyDaysAgo } });
+        if (!orders.length) {
+            return res.json({ recommendations: [] }); // Không có dữ liệu
+        }
+
+        // 3. Tạo đối tượng để lưu số lần các sản phẩm xuất hiện cùng nhau
+        let productPairs = {};
+        let totalCount = 0;
+        let totalPairs = 0;
+
+        orders.forEach((order) => {
+            // Kiểm tra nếu đơn hàng có sản phẩm bị trùng ID thì bỏ qua đơn hàng đó
+            const productIds = order.items.map((item) => item.product_id);
+            const uniqueProductIds = new Set(productIds);
+            if (uniqueProductIds.size !== productIds.length) {
+                return; // Bỏ qua đơn hàng này
+            }
+
+            // Duyệt từng cặp sản phẩm trong đơn hàng
+            order.items.forEach((itemA, index) => {
+                for (let j = index + 1; j < order.items.length; j++) {
+                    const itemB = order.items[j];
+
+                    // Sắp xếp ID để tránh trùng lặp (A_B và B_A giống nhau)
+                    const key = [itemA.product_id, itemB.product_id].sort().join("_");
+                    productPairs[key] = (productPairs[key] || 0) + 1;
+                    totalCount += 1; // Tổng số lần xuất hiện của các cặp
+                }
+            });
+        });
+
+        totalPairs = Object.keys(productPairs).length;
+        const averageCount = totalPairs ? totalCount / totalPairs : 0; // Tính trung bình
+
+        // 4. Chuyển danh sách cặp sản phẩm thành mảng và sắp xếp theo số lần xuất hiện
+        let sortedPairs = Object.entries(productPairs)
+            .sort((a, b) => b[1] - a[1]) // Sắp xếp theo tần suất xuất hiện
+            .map(([key, count]) => {
+                const [product1, product2] = key.split("_");
+                return { product1, product2, count };
+            })
+            .filter(pair => pair.count > averageCount); // Chỉ lấy những cặp sản phẩm có số lần mua lớn hơn trung bình
+
+        // 5. Lấy thông tin chi tiết sản phẩm từ DB
+        const recommendations = await Promise.all(
+            sortedPairs.map(async ({ product1, product2, count }) => {
+                const p1 = await Product.findById(product1);
+                const p2 = await Product.findById(product2);
+                if (!p1 || !p2) return null;
+
+                return {
+                    product1: {
+                        _id: p1._id,
+                        name: p1.name,
+                        avatar: p1.avatar,
+                    },
+                    product2: {
+                        _id: p2._id,
+                        name: p2.name,
+                        avatar: p2.avatar,
+                    },
+                    count
+                };
+            })
+        );
+
+        // Trả về danh sách sản phẩm thường mua chung, lọc các cặp sản phẩm bị null
+        res.json({ recommendations: recommendations.filter(Boolean) });
+
+    } catch (error) {
+        console.error("Lỗi khi lấy sản phẩm thường mua cùng:", error);
+        res.status(500).json({ error: "Lỗi server" });
+    }
+});
+
+  
+  
+  
+
 router.get("/profitByMonth", async (req, res) => {
     try {
         const currentYear = new Date().getFullYear();

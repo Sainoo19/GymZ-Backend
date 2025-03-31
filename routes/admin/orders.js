@@ -4,6 +4,14 @@ const Product = require("../../models/products");
 const customResponse = require("../../utils/customResponse");
 const generateId = require("../../utils/generateId");
 const router = express.Router();
+const { db, admin } = require("../../config/firebase"); // Import Firestore
+const {
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs,
+} = require("firebase/firestore"); // Correctly import Firestore
 
 // Sử dụng middleware customResponse
 router.use(customResponse);
@@ -60,9 +68,9 @@ router.get("/all", async function (req, res, next) {
     }
 
     const orders = await Order.find(filters)
-    .sort({ createdAt: -1 })  // Sắp xếp theo thời gian tạo mới nhất
-  
-    .limit(parseInt(limit)) // Lấy giá trị limit từ query parameters hoặc đặt giá trị mặc định là 10
+      .sort({ createdAt: -1 }) // Sắp xếp theo thời gian tạo mới nhất
+
+      .limit(parseInt(limit)) // Lấy giá trị limit từ query parameters hoặc đặt giá trị mặc định là 10
       .skip((parseInt(page) - 1) * parseInt(limit)) // Lấy giá trị page từ query parameters hoặc đặt giá trị mặc định là 1
       .exec();
 
@@ -122,7 +130,39 @@ router.put("/update/:id", async function (req, res, next) {
     if (!updatedOrder) {
       return res.errorResponse("Order not found", 404);
     }
-    res.successResponse(updatedOrder, "Order updated successfully");
+    console.log("🧐 Querying notifications for orderId:", req.params.id);
+
+    try {
+      // Truy vấn Firestore với Admin SDK
+      const notiRef = db.collection("notifications"); // Sử dụng db từ Admin SDK
+      const notiQuery = notiRef.where("orderId", "==", String(req.params.id));
+
+      const notiSnapshot = await notiQuery.get(); // Dùng get() để lấy dữ liệu
+      console.log("📜 Number of notifications found:", notiSnapshot.size);
+
+      // Xóa thông báo
+      console.log(
+        "🔍 Notifications to delete:",
+        notiSnapshot.docs.map((doc) => doc.id)
+      );
+
+      for (const noti of notiSnapshot.docs) {
+        console.log("🗑 Deleting notification:", noti.id);
+        await noti.ref.delete(); // Sử dụng noti.ref.delete() để xóa
+      }
+
+      res.successResponse(updatedOrder, "Order updated successfully");
+    } catch (error) {
+      console.error("❌ Firestore query error:", error);
+      res.errorResponse(
+        "Failed to query notifications",
+        500,
+        {},
+        { error: error.message }
+      );
+    }
+
+    // Xóa thông báo trong Firestore
   } catch (err) {
     res.errorResponse(
       "Failed to update order",
@@ -209,7 +249,7 @@ router.get("/products/top", async (req, res) => {
         $group: {
           _id: "$items.product_id",
           totalQuantity: { $sum: "$items.quantity" }, // Tính tổng quantity của mỗi sản phẩm
-        //   orders: { $push: "$_id" }
+          //   orders: { $push: "$_id" }
         },
       },
       { $sort: { totalQuantity: -1 } }, // Sắp xếp giảm dần theo tổng quantity
@@ -228,7 +268,6 @@ router.get("/products/top", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 
 
 module.exports = router;

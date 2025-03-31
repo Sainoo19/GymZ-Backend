@@ -15,7 +15,7 @@ router.use(customResponse);
 // Hàm tạo access token cho User
 const generateUserAccessToken = (user) => {
   return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-    expiresIn: "15m",
+    expiresIn: "7d",
   });
 };
 
@@ -33,7 +33,7 @@ const generateEmployeeAccessToken = (employee) => {
   return jwt.sign(
     { id: employee._id, role: employee.role, branch_id: employee.branch_id },
     process.env.JWT_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: "7d" }
   );
 };
 
