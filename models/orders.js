@@ -13,6 +13,7 @@ const orderSchema = new Schema({
     _id: { type: String, required: true },
     user_id: { type: String, required: true },
     totalPrice: { type: Number, required: true },
+    shippingFee: { type: Number, required: true },
     status: { type: String, required: true },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },

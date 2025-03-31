@@ -39,7 +39,7 @@ router.post("/create", authenticate, async (req, res) => {
 
   try {
     const { 
-      user_id, totalPrice, status, deliveryAddress, createdAt, updatedAt, items 
+      user_id, totalPrice, status, deliveryAddress, createdAt, updatedAt,shippingFee, items 
     } = req.body;
 
     // Kiểm tra thông tin bắt buộc...
@@ -61,6 +61,7 @@ router.post("/create", authenticate, async (req, res) => {
       _id: orderId,
       user_id,
       totalPrice,
+      shippingFee,
       status,
       deliveryPhoneNumber: phone,
       deliveryName: name,
