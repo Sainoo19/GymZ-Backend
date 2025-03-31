@@ -126,4 +126,32 @@ router.put("/cancel/:orderId", authenticate, async (req, res) => {
         return res.status(500).json({ message: "Lỗi khi hủy đơn hàng", error: error.message });
     }
 });
+
+
+// API lấy đơn hàng của người dùng
+router.get("/orders", authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id; // Lấy user_id từ middleware authenticate
+    const orders = await Order.find({ user_id: userId })
+      .populate("user_id", "name email") // Populate thông tin user
+      .sort({ createdAt: -1 }); // Sắp xếp theo thời gian tạo, mới nhất trước
+
+    return res.status(200).json({
+      status: "success",
+      code: 200,
+      message: "Lấy lịch sử đặt hàng thành công",
+      data: { orders },
+    });
+  } catch (error) {
+    console.error("Lỗi khi lấy lịch sử đặt hàng:", error);
+    return res.status(500).json({
+      status: "error",
+      code: 500,
+      message: "Lỗi server khi lấy lịch sử đặt hàng",
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;
+
