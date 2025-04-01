@@ -1,0 +1,16 @@
+const express = require("express");
+const { sendNotification } = require("./firebaseAdmin");
+
+const router = express.Router();
+
+router.post("/send-notification", async (req, res) => {
+  const { title, body, token } = req.body;
+  if (!token) {
+    return res.status(400).json({ error: "FCM Token không hợp lệ" });
+  }
+
+  await sendNotification(title, body, token);
+  res.json({ success: true, message: "Thông báo đã được gửi" });
+});
+
+module.exports = router;

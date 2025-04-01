@@ -6,12 +6,11 @@ var cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 var logger = require('morgan');
 const cors = require('cors');
-const setupSocket = require("./socket/socketIO"); // Import socket.js
+const passport = require("./routes/API_Third_Party/config/passport");
 
 const URL_FRONTEND = process.env.URL_FRONTEND;
 //khai bao ket noi db
 const database = require('./config/ConnectDB');
-//thêm socket.io
 
 //khai bao router
 var indexRouter = require('./routes/index');
@@ -38,6 +37,8 @@ var memberRouter = require('./routes/admin/members')
 var memberBillRouter = require('./routes/admin/memberBill')
 var trainingSessionRouter = require('./routes/admin/trainningSession')
 var membershipRouter = require('./routes/clients/memberClient')
+var notificationRoutes = require ('./routes/admin/notifications')
+
 var app = express();
 
 // view engine setup
@@ -49,6 +50,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(passport.initialize());
 
 // Cấu hình CORS
 app.use(cors({
@@ -82,14 +84,10 @@ app.use("/members", memberRouter);
 app.use("/membersBill", memberBillRouter);
 app.use('/trainingSession', trainingSessionRouter);
 app.use('/membership', membershipRouter);
+app.use("/notifications", notificationRoutes);
 database.connect();
 
-app.use((req, res, next) => {
-  if (req.path.startsWith("/socket.io/")) {
-    return next();
-  }
-  next();
-});
+
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
   next(createError(404));
