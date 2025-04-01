@@ -3,8 +3,10 @@ const router = express.Router();
 const Payment = require("../../models/payments");
 const Order = require("../../models/orders");
 const mongoose = require("mongoose");
+const generateId = require("../../utils/generateId");
+
 router.post("/create", async (req, res) => {
-  const { orderId } = req.body;
+  const { orderId, paymentMethod } = req.body;
   console.log("orderId received:", orderId);
 
   if (!orderId) {
@@ -25,14 +27,15 @@ router.post("/create", async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng!" });
     }
+    const newPaymentId = await generateId('PAY');
 
     // Tạo payment mới
     const newPayment = new Payment({
-      _id: new mongoose.Types.ObjectId().toString(),
+      _id: newPaymentId,
       orderId,
       user_id: order.user_id,
       amount: order.totalPrice,
-      paymentMethod: "MoMo",
+      paymentMethod: paymentMethod,
       status: "Đang xử lý",
     });
 
