@@ -9,9 +9,8 @@ var Ngrok_Url = process.env.NGROK_URL;
 var accessKey = process.env.ACCESS_MOMO_KEY;
 var secretKey = process.env.SECRET_MOMO_KEY;
 var URL_FRONTEND = process.env.URL_FRONTEND;
-
 router.post("/momopayment", authenticate, async (req, res) => {
-  var { amount, orderId } = req.body; // Lấy số tiền từ request
+  var { amount, orderId, selectedMethod } = req.body; // Lấy số tiền từ request
   if (!amount) {
     return res.status(400).json({ message: "Thiếu số tiền thanh toán" });
   }
@@ -23,7 +22,6 @@ router.post("/momopayment", authenticate, async (req, res) => {
   if (!user_id) {
     return res.status(400).json({ message: "Không tìm thấy user_id" });
   }
-
   var orderInfo = "Thanh toán MoMo";
   var partnerCode = "MOMO";
   var redirectUrl = `${Ngrok_Url}/payment/callback?orderId=${orderId}`;
@@ -66,7 +64,7 @@ router.post("/momopayment", authenticate, async (req, res) => {
   try {
     let result = await axios(option);
     console.log("Kết quả từ MoMo:", result.data);
-  
+
     // Kiểm tra nếu MoMo trả về lỗi
     if (result.data.resultCode !== 0) {
       return res.status(500).json({
@@ -74,93 +72,33 @@ router.post("/momopayment", authenticate, async (req, res) => {
         error: result.data.message || "Giao dịch không thành công",
       });
     }
-  
+
     // Nếu thành công, trả về `payUrl`
     return res.status(200).json(result.data);
   } catch (error) {
     return res.status(500).json({
-    
+
       error: error.response?.data || error.message,
     });
   }
 });
 
-const updateOrderStatusAutomatically = async (orderId) => {
-  const statuses = [
-    "Đơn hàng đã được tạo",
-    "Nhân viên đang chuẩn bị hàng",
-    "Đơn hàng đã giao cho đơn vị vận chuyển",
-    "Đã nhận được hàng",
-  ];
-
-  let index = 0;
-  const interval = setInterval(async () => {
-    if (index < statuses.length) {
-      await Payment.findOneAndUpdate(
-        { orderId },
-        { $push: { statusHistory: statuses[index] } }, // Thêm trạng thái vào lịch sử
-        { new: true }
-      );
-      index++;
-    } else {
-      clearInterval(interval);
-    }
-  }, 10000); // Cập nhật trạng thái mỗi 10 giây
-};
-
-// router.get("/callback", async (req, res) => {
-//   const { resultCode, amount, transId, message, extraData, orderInfo } = req.query;
-//   let orderId = req.query.orderId;
-
-//   if (Array.isArray(orderId)) {
-//     orderId = orderId[0];
-//   }
-
-//   let user_id;
-//   try {
-//     user_id = JSON.parse(extraData || "{}").user_id;
-//   } catch (error) {
-//     user_id = extraData; // Nếu extraData không phải JSON, dùng giá trị gốc
-//   }
-
-//   if (resultCode === "0") {
-//     try {
-//       const newPayment = new Payment({
-//         _id: transId,
-//         orderId: String(orderId),
-//         user_id,
-//         amount: parseInt(amount),
-//         paymentMethod: "MoMo",
-//         status: "Đơn hàng đã được tạo",
-//       });
-
-//       await newPayment.save();
-//       updateOrderStatusAutomatically(orderId);
-
-//       return res.redirect(`${URL_FRONTEND}/order-progress?orderId=${orderId}`);
-//     } catch (error) {
-//       return res.status(500).json({ message: "Lỗi lưu thông tin thanh toán", error: error.message });
-//     }
-//   } else {
-//     return res.status(400).json({ message: "Thanh toán thất bại", error: message });
-//   }
-// });
 router.get("/callback", async (req, res) => {
   try {
-    const { resultCode, orderId } = req.query;
+    const { resultCode, orderId, selectedMethod } = req.query;
 
     // Nếu orderId là mảng, lấy phần tử đầu tiên
     let finalOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
 
     if (resultCode === "0") {
-      console.log(`✅ Thanh toán thành công, chuyển hướng về trang đơn hàng ${finalOrderId}`);
-      return res.redirect(`${URL_FRONTEND}/order-progress?orderId=${finalOrderId}`);
+      console.log(`Thanh toán thành công, chuyển hướng về trang đơn hàng ${finalOrderId}`);
+      return res.redirect(`${URL_FRONTEND}/order-progress?orderId=${finalOrderId}&paymentMethod=MoMo`);
     } else {
-      console.error("❌ Thanh toán thất bại!");
+      console.error("Thanh toán thất bại!");
       return res.redirect(`${URL_FRONTEND}/payment-failed`);
     }
   } catch (error) {
-    console.error("❌ Lỗi xử lý callback thanh toán:", error);
+    console.error("Lỗi xử lý callback thanh toán:", error);
     return res.redirect(`${URL_FRONTEND}/payment-error`);
   }
 });

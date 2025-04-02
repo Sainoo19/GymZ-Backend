@@ -27,7 +27,9 @@ router.post("/create", async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng!" });
     }
-    const newPaymentId = await generateId('PAY');
+    const newPaymentId = await generateId('PA');
+    const now = new Date();
+    const vietnamTime = new Date(now.getTime() + (7 * 60 * 60 * 1000)); // Add 7 hours for UTC+7
 
     // Tạo payment mới
     const newPayment = new Payment({
