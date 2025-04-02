@@ -3,6 +3,8 @@ const router = express.Router();
 const Payment = require("../../models/payments");
 const Order = require("../../models/orders");
 const mongoose = require("mongoose");
+
+
 router.post("/create", async (req, res) => {
   const { orderId } = req.body;
   console.log("orderId received:", orderId);
@@ -34,6 +36,8 @@ router.post("/create", async (req, res) => {
       amount: order.totalPrice,
       paymentMethod: "MoMo",
       status: "Đang xử lý",
+      createdAt: vietnamTime,
+      updatedAt: vietnamTime
     });
 
     await newPayment.save();

@@ -3,6 +3,7 @@ const Order = require("../../models/orders"); // Assuming you have an Order mode
 const Product = require("../../models/products");
 const customResponse = require("../../utils/customResponse");
 const generateId = require("../../utils/generateId");
+const Review = require("../../models/reviews");
 const router = express.Router();
 const { db, admin } = require("../../config/firebase"); // Import Firestore
 const {
@@ -240,32 +241,116 @@ router.get("/all/nopagination", async function (req, res, next) {
   }
 });
 
-/* GET top product page home chưa có làmmmmm*/
+// Enhanced top-seller API with detailed product information
 router.get("/products/top", async (req, res) => {
   try {
+    // Get top selling products by quantity
     const topProducts = await Order.aggregate([
-      { $unwind: "$items" }, // Tách từng sản phẩm trong items thành một document riêng
+      { $unwind: "$items" }, // Separate each product in items into a different document
       {
         $group: {
           _id: "$items.product_id",
-          totalQuantity: { $sum: "$items.quantity" }, // Tính tổng quantity của mỗi sản phẩm
-          //   orders: { $push: "$_id" }
+          totalQuantity: { $sum: "$items.quantity" }, // Calculate total quantity for each product
         },
       },
-      { $sort: { totalQuantity: -1 } }, // Sắp xếp giảm dần theo tổng quantity
-      { $limit: 8 }, // Giới hạn chỉ lấy 8 sản phẩm
+      { $sort: { totalQuantity: -1 } }, // Sort in descending order by quantity
+      { $limit: 8 }, // Limit to top 8 products
     ]);
 
     if (topProducts.length === 0) {
-      return res
-        .status(404)
-        .json({ status: "error", code: 404, message: "No products found" });
+      return res.errorResponse("No products found", 404);
     }
 
-    res.status(200).json(topProducts);
+    // Get the product IDs
+    const productIds = topProducts.map((product) => product._id);
+
+    // Fetch detailed product information
+    const productDetails = await Product.find({ _id: { $in: productIds } });
+
+    // Fetch ratings for these products
+    const productRatings = await Review.aggregate([
+      { $match: { product_id: { $in: productIds }, status: "active" } },
+      {
+        $group: {
+          _id: "$product_id",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Map ratings to a more accessible format
+    const ratingsMap = {};
+    productRatings.forEach((rating) => {
+      ratingsMap[rating._id] = {
+        averageRating: parseFloat(rating.averageRating.toFixed(1)),
+        totalReviews: rating.totalReviews,
+      };
+    });
+
+    // Combine all data into the final response
+    const enhancedProducts = productDetails.map((product) => {
+      // Find quantity sold data
+      const quantityData = topProducts.find(
+        (tp) => tp._id === product._id.toString()
+      );
+
+      // Calculate price range from variations
+      let minPrice = Infinity;
+      let maxPrice = 0;
+
+      product.variations.forEach((variation) => {
+        const price = variation.salePrice;
+        if (price < minPrice) minPrice = price;
+        if (price > maxPrice) maxPrice = price;
+      });
+
+      // Format price range
+      const priceRange =
+        minPrice === maxPrice
+          ? `${minPrice}`
+          : `${minPrice}-${maxPrice}`;
+
+      // Get first image
+      const firstImage = product.avatar || (product.images && product.images.length > 0 ? product.images[0] : "");
+
+      // Get rating data or provide defaults
+      const ratingData = ratingsMap[product._id] || {
+        averageRating: 0,
+        totalReviews: 0,
+      };
+
+      // Build enhanced product object
+      return {
+        _id: product._id,
+        name: product.name,
+        priceRange: priceRange,
+        image: firstImage,
+        rating: ratingData.averageRating,
+        reviewCount: ratingData.totalReviews,
+        quantitySold: quantityData ? quantityData.totalQuantity : 0,
+      };
+    });
+
+    // Sort the enhanced products by the original quantity order
+    enhancedProducts.sort((a, b) => {
+      const aQuantity = topProducts.find((tp) => tp._id === a._id)?.totalQuantity || 0;
+      const bQuantity = topProducts.find((tp) => tp._id === b._id)?.totalQuantity || 0;
+      return bQuantity - aQuantity;
+    });
+
+    res.successResponse(
+      enhancedProducts,
+      "Fetched top selling products successfully"
+    );
   } catch (error) {
-    console.error("Lỗi khi lấy sản phẩm có số lượng cao nhất:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error fetching top selling products:", error);
+    res.errorResponse(
+      "Failed to fetch top products",
+      500,
+      {},
+      { error: error.message }
+    );
   }
 });
 

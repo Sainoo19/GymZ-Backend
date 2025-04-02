@@ -24,7 +24,7 @@ router.get('/profile', authenticate, async function (req, res, next) {
 });
 
 /* PUT update profile of the logged-in user */
-router.put('/profile', authenticate, async function (req, res, next) {
+router.put('/myprofile', authenticate, async function (req, res, next) {
     try {
         const { name, phone, avatar, address } = req.body;
         const updatedData = { name, phone, avatar, address };
