@@ -27,7 +27,7 @@ router.post("/create", async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng!" });
     }
-    const newPaymentId = await generateId('PAY');
+    const newPaymentId = await generateId('PA');
 
     // Tạo payment mới
     const newPayment = new Payment({
