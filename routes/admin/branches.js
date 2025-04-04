@@ -2,6 +2,8 @@ const express = require('express');
 const Branch = require('../../models/branches'); // Assuming you have a Branch model
 const customResponse = require('../../utils/customResponse');
 const generateId = require('../../utils/generateId');
+const { authenticate, authorize } = require("../../middlewares/auth");
+
 const router = express.Router();
 
 // Sử dụng middleware customResponse
@@ -120,5 +122,16 @@ router.get('/:id', async function (req, res, next) {
         res.errorResponse('Failed to fetch branch', 500, {}, { error: err.message });
     }
 });
-
+// router.get("/getbranches", authenticate, authorize(['admin', 'manager']), async (req, res) => {
+    router.get("/getbranches", async (req, res) => {
+        try {
+            const branches = await Branch.find({}, { _id: 1, name: 1 });
+            res.json(branches); // Trả về tất cả branch
+        } catch (error) {
+            console.error("Error fetching branches:", error);
+            res.status(500).json({ message: "Internal Server Error" });
+        }
+    });
+    
+  
 module.exports = router;

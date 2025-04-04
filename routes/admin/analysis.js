@@ -2,11 +2,16 @@ const express = require("express");
 const Order = require("../../models/orders");
 const Product = require("../../models/products");
 const ProductCategory = require("../../models/productCategories");
+const Member = require("../../models/members");
+const Branch = require("../../models/branches");
 const mongoose = require("mongoose");
 const { authenticate, authorize } = require("../../middlewares/auth");
+const customResponse = require('../../utils/customResponse');
 
 const router = express.Router();
+router.use(customResponse); 
 const statusOrder = "Đặt hàng thành công";
+const statusMember = "ACTIVE";
 
 router.get(
     "/frequently-bought-together",
@@ -107,8 +112,7 @@ router.get(
   );
   
   
-
-router.get("/profitByMonth", async (req, res) => {
+router.get("/profitByMonth", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
 
@@ -167,7 +171,7 @@ router.get("/profitByMonth", async (req, res) => {
   }
 });
 
-router.get("/profitOrders", async (req, res) => {
+router.get("/profitOrders", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const orders = await Order.aggregate([
       {
@@ -236,7 +240,7 @@ const getMonthlyRevenue = async (year) => {
 };
 
 // API lấy doanh thu tháng hiện tại và tháng trước
-router.get("/revenue", async (req, res) => {
+router.get("/revenue", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1; // 1 = Jan, 12 = Dec
@@ -335,7 +339,7 @@ const getMonthlyProfit = async (year) => {
 };
 
 // API lấy lợi nhuận tháng hiện tại và tháng trước
-router.get("/profit", async (req, res) => {
+router.get("/profit", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
@@ -425,7 +429,7 @@ const getMonthlyOrders = async (year) => {
 
   return formattedOrders;
 };
-router.get("/revenueByMonth", async (req, res) => {
+router.get("/revenueByMonth", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
     const orders = await Order.find({
@@ -489,7 +493,7 @@ router.get("/revenueByMonth", async (req, res) => {
 });
 
 // API lấy số đơn hàng tháng hiện tại và tháng trước
-router.get("/orderStats", async (req, res) => {
+router.get("/orderStats",  authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
@@ -547,7 +551,7 @@ router.get("/orderStats", async (req, res) => {
   }
 });
 
-router.get("/best-selling-products", async (req, res) => {
+router.get("/best-selling-products", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const orders = await Order.find({ status: statusOrder });
 
@@ -650,7 +654,7 @@ const getProductSalesByMonth = async (year, month) => {
 };
 
 // API phân tích doanh thu & gợi ý chiến lược bán hàng
-router.get("/revenue-suggestions", async (req, res) => {
+router.get("/revenue-suggestions", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const now = new Date();
     const year = now.getFullYear();
@@ -716,7 +720,7 @@ router.get("/revenue-suggestions", async (req, res) => {
   }
 });
 
-router.get("/inventory", async (req, res) => {
+router.get("/inventory", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const products = await Product.find({}, "name variations");
     res.json({ success: true, inventory: products });
@@ -727,7 +731,7 @@ router.get("/inventory", async (req, res) => {
       .json({ success: false, message: "Lỗi khi lấy danh sách hàng tồn kho" });
   }
 });
-router.get("/inventory-report", async (req, res) => {
+router.get("/inventory-report", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const { category } = req.query;
     const filter = category ? { category } : {};
@@ -776,7 +780,7 @@ router.get("/inventory-report", async (req, res) => {
       .json({ success: false, message: "Lỗi server khi lấy hàng tồn kho" });
   }
 });
-router.get("/products-inventory/:id", async (req, res) => {
+router.get("/products-inventory/:id", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -847,7 +851,7 @@ const predictStockNeeded = (salesHistory, currentStock) => {
 };
 
 // API lấy danh sách sản phẩm và dự đoán số lượng cần nhập cho từng biến thể
-router.get("/predict-stock", async (req, res) => {
+router.get("/predict-stock",  authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const products = await Product.find().lean();
     let stockPredictions = [];
@@ -916,5 +920,147 @@ router.get("/predict-stock", async (req, res) => {
     res.status(500).json({ status: "error", message: "Lỗi máy chủ" });
   }
 });
+
+router.get("/memberStats", authenticate, authorize(['admin', 'manager']), async (req, res) => {
+  try {
+    const currentMonth = new Date().getMonth() + 1; // Tháng hiện tại
+    const previousMonth = currentMonth === 1 ? 12 : currentMonth - 1; // Tháng trước
+    const previousYear = currentMonth === 1 ? new Date().getFullYear() - 1 : new Date().getFullYear(); // Năm trước nếu là tháng 1
+
+    // Lấy danh sách hội viên còn hiệu lực (status là ACTIVE và validUntil còn hiệu lực)
+    const members = await Member.find({
+      status: "ACTIVE",
+      $or: [
+        { validUntil: { $gte: new Date() } },  // Kiểm tra validUntil hợp lệ
+        { validUntil: null }                   // Hoặc validUntil null
+      ]
+    });
+
+    // Tính tổng số hội viên
+    const totalActiveMembers = members.length;
+
+    // Tính số lượng hội viên đăng ký trong tháng trước
+    const previousMonthMembers = await Member.countDocuments({
+      status: "ACTIVE",
+      $or: [
+        { validUntil: { $gte: new Date(new Date().setMonth(previousMonth - 1)) } },  // Kiểm tra validUntil hợp lệ cho tháng trước
+        { validUntil: null }                   // Hoặc validUntil null
+      ],
+      registerDate: {
+        $gte: new Date(previousYear, previousMonth - 1, 1), // Ngày bắt đầu của tháng trước
+        $lt: new Date(previousYear, previousMonth, 1)       // Ngày bắt đầu của tháng hiện tại
+      }
+    });
+
+    // Phần trăm tăng trưởng nếu có
+    let growthRate = 0;
+    if (previousMonthMembers > 0) {
+      growthRate = ((totalActiveMembers - previousMonthMembers) / previousMonthMembers) * 100;
+    }
+
+    res.json({
+      totalActiveMembers: totalActiveMembers,
+      message: `Tổng số hội viên hoạt động hiện tại: ${totalActiveMembers}`,
+      comparisonText: `So với tháng ${previousMonth} năm ${previousYear}`,
+      growthRate: growthRate.toFixed(2), // Hiển thị phần trăm tăng trưởng
+    });
+  } catch (error) {
+    console.error("Lỗi khi lấy thống kê hội viên:", error);
+    res.status(500).json({ message: "Lỗi server!" });
+  }
+});
+
+
+router.get("/count-by-type", authenticate, authorize(['admin', 'manager']), async (req, res) => {
+  try {
+    const today = new Date();
+    const branchID = req.query.branchID;
+
+    // Tạo bộ lọc động
+    const matchStage = {
+      status: statusMember,
+      $or: [{ validUntil: { $gte: today } }],
+    };
+
+    // Nếu có branchID và không phải "ALL", thêm vào filter
+    if (branchID && branchID !== "ALL") {
+      matchStage.branchID = branchID;
+    }
+
+    const membersCount = await Member.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: "$type",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const defaultTypes = Member.schema.path("type").enumValues;
+    const result = defaultTypes.map((type) => ({
+      type,
+      count: membersCount.find((item) => item._id === type)?.count || 0,
+    }));
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching members count:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+router.get("/getbranches", async (req, res) => {
+  try {
+      const branches = await Branch.find({}, { _id: 1, name: 1 });
+      res.json(branches); // Trả về tất cả branch
+  } catch (error) {
+      console.error("Error fetching branches:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+router.get('/member-distribution', async (req, res) => {
+  try {
+    const { branchID } = req.query;
+    const filters = {
+      status: statusMember,
+      $or: [
+        { validUntil: null }, // Trường hợp không có hạn, vẫn hợp lệ
+        { validUntil: { $gte: new Date() } } // validUntil phải >= ngày hiện tại
+      ]
+    };
+
+    if (branchID) {
+      filters.branchID = branchID;
+    }
+
+    const memberDistribution = await Member.aggregate([
+      { $match: filters },
+      {
+        $group: {
+          _id: "$type",
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    const result = memberDistribution.map(item => ({
+      label: item._id,
+      value: item.count
+    }));
+
+    res.status(200).json({
+      message: 'Member distribution fetched successfully',
+      data: result
+    });
+    
+  } catch (err) {
+    console.error("Error in /member-distribution:", err);
+    res.status(500).json({ message: "Internal Server Error", error: err.message });
+  }
+});
+
+
+
 
 module.exports = router;
