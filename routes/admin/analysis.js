@@ -4,9 +4,11 @@ const Product = require("../../models/products");
 const ProductCategory = require("../../models/productCategories");
 const Member = require("../../models/members");
 const Branch = require("../../models/branches");
+const MemberBill = require("../../models/memberBill");
 const mongoose = require("mongoose");
 const { authenticate, authorize } = require("../../middlewares/auth");
 const customResponse = require('../../utils/customResponse');
+const moment = require("moment");
 
 const router = express.Router();
 router.use(customResponse); 
@@ -944,7 +946,6 @@ router.get("/memberStats", authenticate, authorize(['admin', 'manager']), async 
       status: "ACTIVE",
       $or: [
         { validUntil: { $gte: new Date(new Date().setMonth(previousMonth - 1)) } },  // Kiểm tra validUntil hợp lệ cho tháng trước
-        { validUntil: null }                   // Hoặc validUntil null
       ],
       registerDate: {
         $gte: new Date(previousYear, previousMonth - 1, 1), // Ngày bắt đầu của tháng trước
@@ -1059,6 +1060,102 @@ router.get('/member-distribution', async (req, res) => {
     res.status(500).json({ message: "Internal Server Error", error: err.message });
   }
 });
+
+
+
+// API: GET /api/revenue-by-month
+router.get("/revenue-member-by-month", async (req, res) => {
+  try {
+    const today = new Date();
+    const futureDate = new Date();
+    futureDate.setMonth(futureDate.getMonth() + 12); 
+
+    const bills = await MemberBill.aggregate([
+        {
+            $lookup: {
+                from: 'members',
+                localField: 'memberID',
+                foreignField: '_id',
+                as: 'member'
+            }
+        },
+        { $unwind: '$member' },
+        {
+            $match: {
+                'member.validUntil': {
+                    $gte: today,
+                    $lte: futureDate
+                }
+            }
+        },
+        {
+            $project: {
+                amount: 1,
+                validFrom: '$member.validFrom',
+                validUntil: '$member.validUntil',
+                type: '$member.type'
+            }
+        }
+    ]);
+
+    const monthlyMap = {};
+
+    bills.forEach(bill => {
+        const { amount, validFrom, validUntil, type } = bill;
+        if (!validFrom || !validUntil || !type) return;
+
+        const start = new Date(validFrom);
+        const end = new Date(validUntil);
+        const months = [];
+
+        const current = new Date(start.getFullYear(), start.getMonth(), 1);
+        while (current <= end) {
+            const monthKey = `${current.getFullYear()}-${(current.getMonth() + 1).toString().padStart(2, '0')}`;
+            months.push(monthKey);
+            current.setMonth(current.getMonth() + 1);
+        }
+
+        const amountPerMonth = amount / months.length;
+
+        months.forEach(month => {
+            if (!monthlyMap[month]) {
+                monthlyMap[month] = {
+                    typeRevenue: {},
+                    totalRevenue: 0
+                };
+            }
+
+            if (!monthlyMap[month].typeRevenue[type]) {
+                monthlyMap[month].typeRevenue[type] = 0;
+            }
+
+            monthlyMap[month].typeRevenue[type] += amountPerMonth;
+            monthlyMap[month].totalRevenue += amountPerMonth;
+        });
+    });
+
+    const result = Object.entries(monthlyMap).map(([month, data]) => ({
+        month,
+        typeRevenue: Object.fromEntries(
+            Object.entries(data.typeRevenue).map(([type, value]) => [type, Math.round(value)])
+        ),
+        totalRevenue: Math.round(data.totalRevenue)
+    }));
+
+    result.sort((a, b) => a.month.localeCompare(b.month));
+
+    res.json({
+        status: 'success',
+        data: result
+    });
+
+} catch (err) {
+    console.error(err);
+    res.status(500).json({ status: 'error', message: 'Server error' });
+}
+});
+
+
 
 
 
