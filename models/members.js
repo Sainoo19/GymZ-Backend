@@ -13,7 +13,7 @@ const memberSchema = new Schema({
     type: {
         type: String,
         required: true,
-        enum: ['GOLD', 'SILVER', 'PLATINUM', 'BASIC']   // Loại thành viên
+        enum: ['BASIC' ,'GOLD', 'SILVER', 'PLATINUM']   // Loại thành viên
     },
     validFrom: {
         type: Date,

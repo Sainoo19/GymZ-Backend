@@ -5,7 +5,9 @@ const Order = require("../../models/orders");
 const mongoose = require("mongoose");
 const generateId = require("../../utils/generateId");
 
+
 router.post("/create", async (req, res) => {
+
   const { orderId, paymentMethod } = req.body;
   console.log("orderId received:", orderId);
 
