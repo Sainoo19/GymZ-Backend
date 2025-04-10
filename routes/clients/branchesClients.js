@@ -121,4 +121,24 @@ router.get('/:id', async function (req, res, next) {
     }
 });
 
+/* GET count of all branches */
+router.get('/count', async function (req, res, next) {
+    try {
+        // Count all branches or apply filters if needed
+        const count = await Branch.countDocuments({ status: 'active' });
+
+        res.successResponse(
+            { count },
+            'Lấy số lượng chi nhánh thành công'
+        );
+    } catch (err) {
+        res.errorResponse(
+            'Không thể lấy số lượng chi nhánh',
+            500,
+            {},
+            { error: err.message }
+        );
+    }
+});
+
 module.exports = router;

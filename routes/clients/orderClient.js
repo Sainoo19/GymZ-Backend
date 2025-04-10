@@ -192,19 +192,57 @@ router.put("/cancel/:orderId", authenticate, async (req, res) => {
 });
 
 
-// API lấy đơn hàng của người dùng
+// API lấy đơn hàng của người dùng với chi tiết sản phẩm
 router.get("/orders", authenticate, async (req, res) => {
   try {
     const userId = req.user.id; // Lấy user_id từ middleware authenticate
+
+    // Lấy đơn hàng từ database
     const orders = await Order.find({ user_id: userId })
-      .populate("user_id", "name email") // Populate thông tin user
       .sort({ createdAt: -1 }); // Sắp xếp theo thời gian tạo, mới nhất trước
+
+    // Tạo một bản sao sâu của đơn hàng để xử lý
+    const ordersWithProductDetails = JSON.parse(JSON.stringify(orders));
+
+    // Lấy tất cả product_id từ tất cả đơn hàng
+    const productIds = new Set();
+    ordersWithProductDetails.forEach(order => {
+      order.items.forEach(item => {
+        productIds.add(item.product_id);
+      });
+    });
+
+    // Lấy thông tin chi tiết của tất cả sản phẩm trong một lần truy vấn
+    const products = await Product.find({ _id: { $in: Array.from(productIds) } },
+      { _id: 1, name: 1, images: 1, avatar: 1 });
+
+    // Tạo map để dễ dàng truy cập thông tin sản phẩm theo ID
+    const productMap = {};
+    products.forEach(product => {
+      productMap[product._id] = {
+        name: product.name,
+        image: product.avatar || (product.images && product.images.length > 0 ? product.images[0] : "")
+      };
+    });
+
+    // Thêm thông tin sản phẩm vào các item trong đơn hàng
+    ordersWithProductDetails.forEach(order => {
+      order.items.forEach(item => {
+        if (productMap[item.product_id]) {
+          item.productName = productMap[item.product_id].name;
+          item.productImage = productMap[item.product_id].image;
+        } else {
+          item.productName = "Sản phẩm không tồn tại";
+          item.productImage = "";
+        }
+      });
+    });
 
     return res.status(200).json({
       status: "success",
       code: 200,
       message: "Lấy lịch sử đặt hàng thành công",
-      data: { orders },
+      data: { orders: ordersWithProductDetails },
     });
   } catch (error) {
     console.error("Lỗi khi lấy lịch sử đặt hàng:", error);

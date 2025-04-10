@@ -37,7 +37,8 @@ var memberRouter = require('./routes/admin/members')
 var memberBillRouter = require('./routes/admin/memberBill')
 var trainingSessionRouter = require('./routes/admin/trainningSession')
 var membershipRouter = require('./routes/clients/memberClient')
-var notificationRoutes = require ('./routes/admin/notifications')
+var notificationRoutes = require('./routes/admin/notifications')
+var branchesClientRouter = require('./routes/clients/branchesClients')
 
 var app = express();
 
@@ -85,6 +86,7 @@ app.use("/membersBill", memberBillRouter);
 app.use('/trainingSession', trainingSessionRouter);
 app.use('/membership', membershipRouter);
 app.use("/notifications", notificationRoutes);
+app.use('/branchesClient', branchesClientRouter);
 database.connect();
 
 
