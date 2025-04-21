@@ -111,7 +111,17 @@ router.put('/update/:id', authenticate, authorize(['admin', 'manager']), async f
     res.errorResponse('Failed to update employee', 500, {}, { error: err.message });
   }
 });
-
+router.put('/updateEmployee/:id', authenticate,  async function (req, res, next) {
+  try {
+    const updatedEmployee = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedEmployee) {
+      return res.errorResponse('Employee not found', 404);
+    }
+    res.successResponse(updatedEmployee, 'Employee updated successfully');
+  } catch (err) {
+    res.errorResponse('Failed to update employee', 500, {}, { error: err.message });
+  }
+});
 /* DELETE remove an existing employee */
 router.delete('/delete/:id', authenticate, authorize(['admin', 'manager']), async function (req, res, next) {
   try {
