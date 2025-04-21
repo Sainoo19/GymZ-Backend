@@ -148,7 +148,7 @@ router.put("/update/:id", async function (req, res, next) {
       );
 
       for (const noti of notiSnapshot.docs) {
-        console.log("Deleting notification:", noti.id);
+        console.log("🗑 Deleting notification:", noti.id);
         await noti.ref.delete(); // Sử dụng noti.ref.delete() để xóa
       }
 
