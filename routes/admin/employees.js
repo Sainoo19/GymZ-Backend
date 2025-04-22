@@ -5,9 +5,10 @@ const customResponse = require('../../utils/customResponse');
 const generateId = require('../../utils/generateId');
 const { authenticate, authorize } = require('../../middlewares/auth');
 const router = express.Router();
-
+const { sendOtpEmail, verifyOtp } = require('../../utils/otp');
 // Sử dụng middleware customResponse
 router.use(customResponse);
+const crypto = require('crypto');
 
 router.get('/profile', authenticate, async function (req, res, next) {
   try {
@@ -170,6 +171,114 @@ router.get('/all/nopagination', authenticate, authorize(['admin', 'manager', 'PT
     }, 'Fetched all employees successfully');
   } catch (err) {
     res.errorResponse('Failed to fetch employees', 500, {}, { error: err.message });
+  }
+});
+const isEmployee = (req, res, next) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.role !== 'staff') {
+    // Kiểm tra xem người dùng có phải là nhân viên hay không
+      return res.errorResponse('Access denied. You are not an employee', 403);
+  }
+  console.log("req.user:", req.user);
+
+  next();
+};
+router.post('/request-password-change', authenticate,isEmployee, async (req, res) => {
+  try {
+      const { currentPassword } = req.body;
+      const employeeId = req.user.id;
+
+      // Tìm nhân viên theo ID
+      const employee = await Employee.findById(employeeId);
+      if (!employee) {
+          return res.errorResponse('Employee not found', 404);
+      }
+      // Kiểm tra mật khẩu hiện tại của nhân viên
+      const isMatch = await bcrypt.compare(currentPassword, employee.password);
+      if (!isMatch) {
+          return res.errorResponse('Current password is incorrect', 401);
+      }
+
+      // Gửi OTP qua email cho nhân viên
+      await sendOtpEmail(employee.email, employee.email, 'password-change');
+
+      res.successResponse({}, 'OTP sent successfully');
+  } catch (error) {
+      console.error('Error requesting password change:', error);
+      res.errorResponse('Failed to request password change', 500, {}, { error: error.message });
+  }
+});
+router.post('/verify-change-password-otp', authenticate,isEmployee, async (req, res) => {
+  try {
+      const { otp } = req.body;
+      const employeeId = req.user.id;
+
+      // Tìm nhân viên theo ID
+      const employee = await Employee.findById(employeeId);
+      if (!employee) {
+          return res.errorResponse('Employee not found', 404);
+      }
+console.log("employee:", employee);
+      // Kiểm tra xem OTP đã được gửi chưa
+      // Xác minh OTP
+      const isOtpValid = await verifyOtp(employee.email, otp, 'password-change');
+      if (!isOtpValid) {
+          return res.errorResponse('Invalid OTP', 400);
+      }
+
+      // Tạo token xác thực tạm thời
+      const verificationToken = crypto.randomBytes(20).toString('hex');
+
+      // Lưu token vào kho lưu trữ tạm thời (có thể là Redis hoặc bộ nhớ)
+      if (!global.verifiedOtps) {
+          global.verifiedOtps = new Map();
+      }
+      global.verifiedOtps.set(employeeId, { otp, token: verificationToken, timestamp: Date.now() });
+
+      res.successResponse({ verificationToken }, 'OTP verified successfully');
+  } catch (error) {
+      console.error('Error verifying OTP:', error);
+      res.errorResponse('Failed to verify OTP', 500, {}, { error: error.message });
+  }
+});
+router.post('/change-password', authenticate,isEmployee, async (req, res) => {
+  try {
+      const { otp, newPassword } = req.body;
+      const employeeId = req.user.id;
+
+      // Tìm nhân viên theo ID
+      const employee = await Employee.findById(employeeId);
+      if (!employee) {
+          return res.errorResponse('Employee not found', 404);
+      }
+
+      // Xác minh OTP
+      const isOtpValid = await verifyOtp(employee.email, otp, 'password-change');
+      if (!isOtpValid) {
+          // Kiểm tra nếu OTP đã được xác minh trước đó
+          const verifiedData = global.verifiedOtps && global.verifiedOtps.get(employeeId);
+
+          if (!verifiedData || verifiedData.otp !== otp ||
+              Date.now() - verifiedData.timestamp > 300000) { // 5 phút timeout
+              return res.errorResponse('Invalid or expired OTP', 400);
+          }
+      }
+
+      // Hash mật khẩu mới
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Cập nhật mật khẩu cho nhân viên
+      employee.password = hashedPassword;
+      await employee.save();
+
+      // Xóa dữ liệu xác thực tạm thời
+      if (global.verifiedOtps) {
+          global.verifiedOtps.delete(employeeId);
+      }
+
+      res.successResponse({}, 'Password changed successfully');
+  } catch (error) {
+      console.error('Error changing password:', error);
+      res.errorResponse('Failed to change password', 500, {}, { error: error.message });
   }
 });
 
