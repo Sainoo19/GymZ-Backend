@@ -174,7 +174,7 @@ router.get('/all/nopagination', authenticate, authorize(['admin', 'manager', 'PT
   }
 });
 const isEmployee = (req, res, next) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.role !== 'staff') {
+  if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.role !== 'staff ') {
     // Kiểm tra xem người dùng có phải là nhân viên hay không
       return res.errorResponse('Access denied. You are not an employee', 403);
   }
