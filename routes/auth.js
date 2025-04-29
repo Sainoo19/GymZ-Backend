@@ -107,15 +107,15 @@ router.post("/google/token", async (req, res) => {
     console.log("accessToken", accessToken);
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'None', // Correctly set to 'None' with capital 'N'
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'None', // Correctly set to 'None' with capital 'N'
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     res.successResponse({ accessToken, user }, "User logged in successfully");
@@ -145,14 +145,14 @@ router.post("/login/user", async (req, res) => {
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: true,
-      sameSite: 'None', // Correctly set to 'None' with capital 'N'
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      sameSite: 'None',
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: true,
-      sameSite: 'None', // Correctly set to 'None' with capital 'N'
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      sameSite: 'None',
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     res.successResponse({ accessToken, user }, "User logged in successfully");
@@ -161,6 +161,31 @@ router.post("/login/user", async (req, res) => {
     res.errorResponse("Server error", 500, { error });
   }
 });
+
+// router.get(
+//   "/google",
+//   passport.authenticate("google", { scope: ["profile", "email"] })
+// );
+// // Route callback Google sau khi xác thực thành công
+// router.get(
+//   "/google/callback",
+//   passport.authenticate("google", { failureRedirect: "/login-user" }),
+//   (req, res) => {
+//     // Sau khi đăng nhập thành công, tạo JWT và lưu vào cookie
+//     const user = req.user;
+//     const accessToken = generateUserAccessToken(user);
+//     const refreshToken = generateUserRefreshToken(user);
+//     res.cookie("accessToken", accessToken, {
+//       httpOnly: true,
+//       secure: process.env.NODE_ENV === "production",
+//     });
+//     res.cookie("refreshToken", refreshToken, {
+//       httpOnly: true,
+//       secure: process.env.NODE_ENV === "production",
+//     });
+//     // Redirect về frontend (ví dụ: trang chủ)
+//   }
+// );
 
 router.post("/register/user", async (req, res) => {
   try {
@@ -218,47 +243,43 @@ router.post("/register/user", async (req, res) => {
   }
 });
 
-router.post("/login/user", async (req, res) => {
+router.post("/login/employee", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
+    const employee = await Employee.findOne({ email });
+    if (!employee) {
       return res.errorResponse("Invalid email or password", 401);
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, employee.password);
     if (!isMatch) {
       return res.errorResponse("Invalid email or password", 401);
     }
 
-    const accessToken = generateUserAccessToken(user);
-    const refreshToken = generateUserRefreshToken(user);
+    const accessToken = generateEmployeeAccessToken(employee);
+    const refreshToken = generateEmployeeRefreshToken(employee);
     console.log("accessToken", accessToken);
-
-    // Define cookie options
-    const cookieOptions = {
+    res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'None', // Correctly set to 'None'
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    };
-    console.log("Cookie options:", cookieOptions); // Debug log
-
-    // Set accessToken cookie
-    res.cookie("accessToken", accessToken, cookieOptions);
-
-    // Set refreshToken cookie
-    res.cookie("refreshToken", refreshToken, cookieOptions);
-
-    res.successResponse({ accessToken, user }, "User logged in successfully");
-  } catch (error) {
-    console.error("Error logging in user:", {
-      message: error.message,
-      stack: error.stack,
-      cookieOptions: { httpOnly: true, secure: true, sameSite: 'None', maxAge: 7 * 24 * 60 * 60 * 1000 }
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
-    res.errorResponse("Server error", 500, { error: error.message });
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    res.successResponse(
+      { accessToken, employee },
+      "Employee logged in successfully"
+    );
+  } catch (error) {
+    console.error("Error logging in employee:", error);
+    res.errorResponse("Server error", 500, { error });
   }
 });
 
@@ -287,18 +308,15 @@ router.post("/refresh-token", async (req, res) => {
   }
 });
 router.post("/logout", (req, res) => {
-  // When clearing cookies, we need to match the same settings
-  res.clearCookie("accessToken", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax'
-  });
+  const cookieOptions = getCookieConfig();
+  // When clearing cookies, we don't need maxAge
+  const clearOptions = {
+    ...cookieOptions,
+    maxAge: 0
+  };
 
-  res.clearCookie("refreshToken", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax'
-  });
+  res.clearCookie("accessToken", clearOptions);
+  res.clearCookie("refreshToken", clearOptions);
 
   res.status(200).json({ status: "success", message: "Logged out successfully" });
 });
