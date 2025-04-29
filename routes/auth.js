@@ -107,14 +107,14 @@ router.post("/google/token", async (req, res) => {
     console.log("accessToken", accessToken);
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      secure: true,
+      sameSite: "None",
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      secure: true,
+      sameSite: "None",
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
@@ -141,7 +141,7 @@ router.post("/login/user", async (req, res) => {
 
     const accessToken = generateUserAccessToken(user);
     const refreshToken = generateUserRefreshToken(user);
-    console.log("accessToken", accessToken);// In your /google/token route
+    console.log("accessToken", accessToken);
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: true,
@@ -262,14 +262,14 @@ router.post("/login/employee", async (req, res) => {
     console.log("accessToken", accessToken);
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      secure: true,
+      sameSite: "None",
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      secure: true,
+      sameSite: "None",
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
@@ -308,16 +308,18 @@ router.post("/refresh-token", async (req, res) => {
   }
 });
 router.post("/logout", (req, res) => {
-  const cookieOptions = getCookieConfig();
-  // When clearing cookies, we don't need maxAge
-  const clearOptions = {
-    ...cookieOptions,
-    maxAge: 0
+  // Cookie options matching the ones used when setting cookies
+  const cookieOptions = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "None"
   };
 
-  res.clearCookie("accessToken", clearOptions);
-  res.clearCookie("refreshToken", clearOptions);
+  // Clear cookies by setting empty value and immediate expiration
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
 
-  res.status(200).json({ status: "success", message: "Logged out successfully" });
+  // Use the custom response handler for consistency
+  res.successResponse(null, "Logged out successfully");
 });
 module.exports = router;
