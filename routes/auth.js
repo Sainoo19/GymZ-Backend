@@ -108,14 +108,14 @@ router.post("/google/token", async (req, res) => {
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     res.successResponse({ accessToken, user }, "User logged in successfully");
@@ -141,20 +141,18 @@ router.post("/login/user", async (req, res) => {
 
     const accessToken = generateUserAccessToken(user);
     const refreshToken = generateUserRefreshToken(user);
-
+    console.log("accessToken", accessToken);// In your /google/token route
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     res.successResponse({ accessToken, user }, "User logged in successfully");
@@ -261,18 +259,18 @@ router.post("/login/employee", async (req, res) => {
 
     const accessToken = generateEmployeeAccessToken(employee);
     const refreshToken = generateEmployeeRefreshToken(employee);
-
+    console.log("accessToken", accessToken);
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     res.successResponse(
@@ -310,15 +308,18 @@ router.post("/refresh-token", async (req, res) => {
   }
 });
 router.post("/logout", (req, res) => {
-  const cookieOptions = getCookieConfig();
-  // When clearing cookies, we don't need maxAge
-  const clearOptions = {
-    ...cookieOptions,
-    maxAge: 0
-  };
+  // When clearing cookies, we need to match the same settings
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax'
+  });
 
-  res.clearCookie("accessToken", clearOptions);
-  res.clearCookie("refreshToken", clearOptions);
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax'
+  });
 
   res.status(200).json({ status: "success", message: "Logged out successfully" });
 });
