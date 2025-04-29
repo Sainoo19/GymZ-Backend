@@ -107,21 +107,20 @@ router.post("/google/token", async (req, res) => {
     console.log("accessToken", accessToken);
     // Update this in your login handler and anywhere else setting cookies
 
-    // Set access token as a cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production", // true when deployed
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // CRITICAL for cross-domain
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
 
-    // Set refresh token as a cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // CRITICAL for cross-domain
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
+
 
     res.successResponse({ accessToken, user }, "User logged in successfully");
   } catch (error) {
@@ -149,21 +148,20 @@ router.post("/login/user", async (req, res) => {
 
     // Update this in your login handler and anywhere else setting cookies
 
-    // Set access token as a cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production", // true when deployed
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // CRITICAL for cross-domain
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
 
-    // Set refresh token as a cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // CRITICAL for cross-domain
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
+
 
     res.successResponse({ accessToken, user }, "User logged in successfully");
   } catch (error) {
@@ -270,15 +268,20 @@ router.post("/login/employee", async (req, res) => {
     const accessToken = generateEmployeeAccessToken(employee);
     const refreshToken = generateEmployeeRefreshToken(employee);
 
-    // Set refresh token as a cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production", // true when deployed
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
+
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
+
 
     res.successResponse(
       { accessToken, employee },
