@@ -52,30 +52,13 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(passport.initialize());
 
-// Define allowed origins explicitly
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://gym-z-frontend.vercel.app',
-  // Add your actual frontend domain here
-];
-
-// Cấu hình CORS
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl requests)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.onrender.com')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: URL_FRONTEND,
   methods: 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-  allowedHeaders: 'Content-Type, Authorization, cache-control, X-Requested-With',
-  exposedHeaders: ['set-cookie'],
+  allowedHeaders: 'Content-Type, Authorization, cache-control',
   credentials: true
 }));
+
 
 app.use('/home', indexRouter);
 app.use('/users', usersRouter);
