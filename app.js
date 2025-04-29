@@ -56,7 +56,7 @@ app.use(passport.initialize());
 const allowedOrigins = [
   'http://localhost:3000',
   'https://your-frontend-domain.com',
-  // Add any other frontend URLs here
+  // Add your actual frontend domain here
 ];
 
 // Cấu hình CORS
@@ -65,15 +65,16 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl requests)
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.onrender.com')) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
   methods: 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-  allowedHeaders: 'Content-Type, Authorization, cache-control',
-  credentials: true // Vẫn giữ credentials: true
+  allowedHeaders: 'Content-Type, Authorization, cache-control, X-Requested-With',
+  exposedHeaders: ['set-cookie'],
+  credentials: true
 }));
 
 app.use('/home', indexRouter);

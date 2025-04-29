@@ -105,22 +105,18 @@ router.post("/google/token", async (req, res) => {
     const accessToken = generateUserAccessToken(user);
     const refreshToken = generateUserRefreshToken(user);
     console.log("accessToken", accessToken);
-    // Update this in your login handler and anywhere else setting cookies
-
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // true when deployed
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
-
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
-
 
     res.successResponse({ accessToken, user }, "User logged in successfully");
   } catch (error) {
@@ -146,22 +142,20 @@ router.post("/login/user", async (req, res) => {
     const accessToken = generateUserAccessToken(user);
     const refreshToken = generateUserRefreshToken(user);
 
-    // Update this in your login handler and anywhere else setting cookies
-
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // true when deployed
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
+
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
-
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
+
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
-
 
     res.successResponse({ accessToken, user }, "User logged in successfully");
   } catch (error) {
@@ -270,18 +264,16 @@ router.post("/login/employee", async (req, res) => {
 
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // true when deployed
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
-
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax', // Changed to lowercase
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
-
 
     res.successResponse(
       { accessToken, employee },
@@ -318,8 +310,16 @@ router.post("/refresh-token", async (req, res) => {
   }
 });
 router.post("/logout", (req, res) => {
-  res.clearCookie("accessToken");
-  res.clearCookie("refreshToken");
-  res.json({ message: "Logged out successfully" });
+  const cookieOptions = getCookieConfig();
+  // When clearing cookies, we don't need maxAge
+  const clearOptions = {
+    ...cookieOptions,
+    maxAge: 0
+  };
+
+  res.clearCookie("accessToken", clearOptions);
+  res.clearCookie("refreshToken", clearOptions);
+
+  res.status(200).json({ status: "success", message: "Logged out successfully" });
 });
 module.exports = router;
