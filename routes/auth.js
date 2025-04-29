@@ -107,15 +107,15 @@ router.post("/google/token", async (req, res) => {
     console.log("accessToken", accessToken);
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      secure: true,
+      sameSite: 'None', // Correctly set to 'None' with capital 'N'
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      secure: true,
+      sameSite: 'None', // Correctly set to 'None' with capital 'N'
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
     res.successResponse({ accessToken, user }, "User logged in successfully");
@@ -144,15 +144,15 @@ router.post("/login/user", async (req, res) => {
     console.log("accessToken", accessToken);// In your /google/token route
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      secure: true,
+      sameSite: 'None', // Correctly set to 'None' with capital 'N'
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      secure: true,
+      sameSite: 'None', // Correctly set to 'None' with capital 'N'
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
     res.successResponse({ accessToken, user }, "User logged in successfully");
@@ -161,31 +161,6 @@ router.post("/login/user", async (req, res) => {
     res.errorResponse("Server error", 500, { error });
   }
 });
-
-// router.get(
-//   "/google",
-//   passport.authenticate("google", { scope: ["profile", "email"] })
-// );
-// // Route callback Google sau khi xác thực thành công
-// router.get(
-//   "/google/callback",
-//   passport.authenticate("google", { failureRedirect: "/login-user" }),
-//   (req, res) => {
-//     // Sau khi đăng nhập thành công, tạo JWT và lưu vào cookie
-//     const user = req.user;
-//     const accessToken = generateUserAccessToken(user);
-//     const refreshToken = generateUserRefreshToken(user);
-//     res.cookie("accessToken", accessToken, {
-//       httpOnly: true,
-//       secure: process.env.NODE_ENV === "production",
-//     });
-//     res.cookie("refreshToken", refreshToken, {
-//       httpOnly: true,
-//       secure: process.env.NODE_ENV === "production",
-//     });
-//     // Redirect về frontend (ví dụ: trang chủ)
-//   }
-// );
 
 router.post("/register/user", async (req, res) => {
   try {
@@ -259,18 +234,18 @@ router.post("/login/employee", async (req, res) => {
 
     const accessToken = generateEmployeeAccessToken(employee);
     const refreshToken = generateEmployeeRefreshToken(employee);
-    console.log("accessToken", accessToken);
+    console.log("accessToken", accessToken);// In your /google/token route
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      secure: true,
+      sameSite: 'None', // Correctly set to 'None' with capital 'N'
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // Changed to capital N
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      secure: true,
+      sameSite: 'None', // Correctly set to 'None' with capital 'N'
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
     res.successResponse(
