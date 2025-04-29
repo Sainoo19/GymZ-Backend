@@ -55,7 +55,7 @@ app.use(passport.initialize());
 // Define allowed origins explicitly
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://your-frontend-domain.com',
+  'https://gym-z-frontend.vercel.app',
   // Add your actual frontend domain here
 ];
 
