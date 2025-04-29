@@ -14,7 +14,7 @@ router.use(customResponse);
 
 // Hàm tạo access token cho User
 const generateUserAccessToken = (user) => {
-    return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 // Hàm tạo refresh token cho User
@@ -28,7 +28,7 @@ const generateUserRefreshToken = (user) => {
 
 // Hàm tạo access token cho Employee
 const generateEmployeeAccessToken = (employee) => {
-    return jwt.sign({ id: employee._id, role: employee.role, branch_id: employee.branch_id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ id: employee._id, role: employee.role, branch_id: employee.branch_id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 // Hàm tạo refresh token cho Employee
@@ -105,14 +105,22 @@ router.post("/google/token", async (req, res) => {
     const accessToken = generateUserAccessToken(user);
     const refreshToken = generateUserRefreshToken(user);
     console.log("accessToken", accessToken);
-    // Lưu token vào cookie
+    // Update this in your login handler and anywhere else setting cookies
+
+    // Set access token as a cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production", // true when deployed
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // CRITICAL for cross-domain
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
+
+    // Set refresh token as a cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // CRITICAL for cross-domain
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
 
     res.successResponse({ accessToken, user }, "User logged in successfully");
@@ -139,14 +147,22 @@ router.post("/login/user", async (req, res) => {
     const accessToken = generateUserAccessToken(user);
     const refreshToken = generateUserRefreshToken(user);
 
-    // Set refresh token as a cookie
+    // Update this in your login handler and anywhere else setting cookies
+
+    // Set access token as a cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production", // true when deployed
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // CRITICAL for cross-domain
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
+
+    // Set refresh token as a cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax', // CRITICAL for cross-domain
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
     });
 
     res.successResponse({ accessToken, user }, "User logged in successfully");

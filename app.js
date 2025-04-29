@@ -52,27 +52,30 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(passport.initialize());
 
+// Define allowed origins explicitly
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://gym-z-frontend.vercel.app'
+  'https://your-frontend-domain.com',
+  // Add any other frontend URLs here
 ];
 
+// Cấu hình CORS
 app.use(cors({
   origin: function (origin, callback) {
-    // Cho phép các request không có Origin (Postman, server-side, v.v.)
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (like mobile apps, curl requests)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error('CORS not allowed for this origin: ' + origin));
+      callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'cache-control'],
-  credentials: true
+  methods: 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+  allowedHeaders: 'Content-Type, Authorization, cache-control',
+  credentials: true // Vẫn giữ credentials: true
 }));
 
-// Phải thêm dòng này để CORS hoạt động với các preflight request (OPTIONS)
-app.options('*', cors());
 app.use('/home', indexRouter);
 app.use('/users', usersRouter);
 app.use('/employees', employeesRouter);
