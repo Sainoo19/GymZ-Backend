@@ -218,43 +218,47 @@ router.post("/register/user", async (req, res) => {
   }
 });
 
-router.post("/login/employee", async (req, res) => {
+router.post("/login/user", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const employee = await Employee.findOne({ email });
-    if (!employee) {
+    const user = await User.findOne({ email });
+    if (!user) {
       return res.errorResponse("Invalid email or password", 401);
     }
 
-    const isMatch = await bcrypt.compare(password, employee.password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.errorResponse("Invalid email or password", 401);
     }
 
-    const accessToken = generateEmployeeAccessToken(employee);
-    const refreshToken = generateEmployeeRefreshToken(employee);
-    console.log("accessToken", accessToken);// In your /google/token route
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'None', // Correctly set to 'None' with capital 'N'
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'None', // Correctly set to 'None' with capital 'N'
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
+    const accessToken = generateUserAccessToken(user);
+    const refreshToken = generateUserRefreshToken(user);
+    console.log("accessToken", accessToken);
 
-    res.successResponse(
-      { accessToken, employee },
-      "Employee logged in successfully"
-    );
+    // Define cookie options
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'None', // Correctly set to 'None'
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    };
+    console.log("Cookie options:", cookieOptions); // Debug log
+
+    // Set accessToken cookie
+    res.cookie("accessToken", accessToken, cookieOptions);
+
+    // Set refreshToken cookie
+    res.cookie("refreshToken", refreshToken, cookieOptions);
+
+    res.successResponse({ accessToken, user }, "User logged in successfully");
   } catch (error) {
-    console.error("Error logging in employee:", error);
-    res.errorResponse("Server error", 500, { error });
+    console.error("Error logging in user:", {
+      message: error.message,
+      stack: error.stack,
+      cookieOptions: { httpOnly: true, secure: true, sameSite: 'None', maxAge: 7 * 24 * 60 * 60 * 1000 }
+    });
+    res.errorResponse("Server error", 500, { error: error.message });
   }
 });
 
