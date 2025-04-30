@@ -58,12 +58,23 @@ router.get('/all/nopagination', async function (req, res, next) {
     }
 });
 
-router.get('/all/nopagination', async function (req, res, next) {
+/* GET count of all branches */
+router.get('/count', async function (req, res, next) {
     try {
-        const branches = await Branch.find();
-        res.successResponse(branches, 'Fetched all branches successfully');
+        // Count all branches or apply filters if needed
+        const count = await Branch.countDocuments({ status: 'active' });
+
+        res.successResponse(
+            { count },
+            'Lấy số lượng chi nhánh thành công'
+        );
     } catch (err) {
-        res.errorResponse('Failed to fetch branches', 500, {}, { error: err.message });
+        res.errorResponse(
+            'Không thể lấy số lượng chi nhánh',
+            500,
+            {},
+            { error: err.message }
+        );
     }
 });
 
@@ -121,24 +132,6 @@ router.get('/:id', async function (req, res, next) {
     }
 });
 
-/* GET count of all branches */
-router.get('/count', async function (req, res, next) {
-    try {
-        // Count all branches or apply filters if needed
-        const count = await Branch.countDocuments({ status: 'active' });
 
-        res.successResponse(
-            { count },
-            'Lấy số lượng chi nhánh thành công'
-        );
-    } catch (err) {
-        res.errorResponse(
-            'Không thể lấy số lượng chi nhánh',
-            500,
-            {},
-            { error: err.message }
-        );
-    }
-});
 
 module.exports = router;

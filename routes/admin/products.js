@@ -17,78 +17,210 @@ router.get('/all/nopagination', async function (req, res, next) {
         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
     }
 });
-// GET all products with filters and pagination (cập nhật thêm min/max price)
-router.get('/all', async function (req, res) {
+// ...existing code...
+
+/* GET optimized product data for card pages with improved performance */
+router.get('/all/cardpage', async function (req, res) {
     try {
         const { page = 1, limit = 10, category, priceMin, priceMax, search, sortBy } = req.query;
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const skip = (pageNum - 1) * limitNum;
 
-        const filters = {};
+        // Build the aggregation pipeline
+        const pipeline = [];
+
+        // Match stage (filtering)
+        const matchStage = {};
 
         if (category) {
-            filters.category = category;
-        }
-
-        if (priceMin || priceMax) {
-            filters['variations.salePrice'] = {};
-            if (priceMin) filters['variations.salePrice'].$gte = parseInt(priceMin);
-            if (priceMax) filters['variations.salePrice'].$lte = parseInt(priceMax);
+            matchStage.category = category;
         }
 
         if (search) {
             const searchRegex = new RegExp(search, 'i');
-            filters.$or = [
+            matchStage.$or = [
                 { name: searchRegex },
                 { category: searchRegex }
             ];
         }
 
-        let sortOption = {};
-        if (sortBy === 'priceAsc') {
-            sortOption = { 'variations.salePrice': 1 };
-        } else if (sortBy === 'priceDesc') {
-            sortOption = { 'variations.salePrice': -1 };
+        if (Object.keys(matchStage).length > 0) {
+            pipeline.push({ $match: matchStage });
         }
 
-        const products = await Product.find(filters)
-            .sort(sortOption)
-            .limit(parseInt(limit))
-            .skip((parseInt(page) - 1) * parseInt(limit))
-            .populate('category', 'name')
-            .exec();
+        // Add price filtering if needed
+        if (priceMin || priceMax) {
+            const priceFilter = {};
+            if (priceMin) priceFilter.$gte = parseInt(priceMin);
+            if (priceMax) priceFilter.$lte = parseInt(priceMax);
 
-        const count = await Product.countDocuments(filters);
-
-        // Lấy giá thấp nhất và cao nhất của mỗi sản phẩm
-        const productsWithPriceRange = products.map(product => {
-            if (!product.variations || product.variations.length === 0) {
-                return {
-                    ...product.toObject(),
-                    minPrice: 0,
-                    maxPrice: 0
-                };
+            if (Object.keys(priceFilter).length > 0) {
+                pipeline.push({
+                    $match: {
+                        'variations.salePrice': priceFilter
+                    }
+                });
             }
-            const prices = product.variations.map(v => v.salePrice);
-            const minPrice = Math.min(...prices);
-            const maxPrice = Math.max(...prices);
-            return {
-                ...product.toObject(),
-                minPrice,
-                maxPrice
-            };
+        }
+
+        // Add projection to calculate min/max prices and total stock
+        pipeline.push({
+            $addFields: {
+                minPrice: {
+                    $min: '$variations.salePrice'
+                },
+                maxPrice: {
+                    $max: '$variations.salePrice'
+                },
+                totalStock: {
+                    $sum: '$variations.stock'
+                }
+            }
         });
+
+        // Lookup to get category name
+        pipeline.push({
+            $lookup: {
+                from: 'productcategories',  // collection name is usually plural and lowercase
+                localField: 'category',
+                foreignField: '_id',
+                as: 'categoryObj'
+            }
+        });
+
+        // Unwind the category object
+        pipeline.push({
+            $unwind: {
+                path: '$categoryObj',
+                preserveNullAndEmptyArrays: true
+            }
+        });
+
+        // Sorting
+        if (sortBy === 'priceAsc') {
+            pipeline.push({ $sort: { minPrice: 1 } });
+        } else if (sortBy === 'priceDesc') {
+            pipeline.push({ $sort: { minPrice: -1 } });
+        } else {
+            // Default sort by _id
+            pipeline.push({ $sort: { _id: 1 } });
+        }
+
+        // Count total documents before pagination
+        const countPipeline = [...pipeline];
+        countPipeline.push({ $count: 'totalCount' });
+        const countResult = await Product.aggregate(countPipeline).exec();
+        const count = countResult.length > 0 ? countResult[0].totalCount : 0;
+
+        // Apply pagination
+        pipeline.push({ $skip: skip });
+        pipeline.push({ $limit: limitNum });
+
+        // Final projection to only include needed fields
+        pipeline.push({
+            $project: {
+                _id: 1,
+                name: 1,
+                categoryId: '$category',
+                category: '$categoryObj.name',
+                avatar: 1,
+                minPrice: 1,
+                maxPrice: 1,
+                totalStock: 1
+            }
+        });
+
+        // Execute the aggregation with explain option for performance monitoring
+        const products = await Product.aggregate(pipeline).exec();
 
         res.successResponse({
-            products: productsWithPriceRange
-        }, 'Fetched all products successfully', 200, {
+            products: products
+        }, 'Fetched card products successfully', 200, {
             totalProducts: count,
-            pageSize: parseInt(limit),
-            currentPage: parseInt(page),
-            totalPages: Math.ceil(count / parseInt(limit))
+            pageSize: limitNum,
+            currentPage: pageNum,
+            totalPages: Math.ceil(count / limitNum)
         });
     } catch (err) {
-        res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
+        console.error("Error fetching card products:", err);
+        res.errorResponse('Failed to fetch card products', 500, {}, { error: err.message });
     }
 });
+
+// ...existing code...
+// // GET all products with filters and pagination (cập nhật thêm min/max price)
+// router.get('/all', async function (req, res) {
+//     try {
+//         const { page = 1, limit = 10, category, priceMin, priceMax, search, sortBy } = req.query;
+
+//         const filters = {};
+
+//         if (category) {
+//             filters.category = category;
+//         }
+
+//         if (priceMin || priceMax) {
+//             filters['variations.salePrice'] = {};
+//             if (priceMin) filters['variations.salePrice'].$gte = parseInt(priceMin);
+//             if (priceMax) filters['variations.salePrice'].$lte = parseInt(priceMax);
+//         }
+
+//         if (search) {
+//             const searchRegex = new RegExp(search, 'i');
+//             filters.$or = [
+//                 { name: searchRegex },
+//                 { category: searchRegex }
+//             ];
+//         }
+
+//         let sortOption = {};
+//         if (sortBy === 'priceAsc') {
+//             sortOption = { 'variations.salePrice': 1 };
+//         } else if (sortBy === 'priceDesc') {
+//             sortOption = { 'variations.salePrice': -1 };
+//         }
+
+//         const products = await Product.find(filters)
+//             .sort(sortOption)
+//             .limit(parseInt(limit))
+//             .skip((parseInt(page) - 1) * parseInt(limit))
+//             .populate('category', 'name')
+//             .exec();
+
+//         const count = await Product.countDocuments(filters);
+
+//         // Lấy giá thấp nhất và cao nhất của mỗi sản phẩm
+//         const productsWithPriceRange = products.map(product => {
+//             if (!product.variations || product.variations.length === 0) {
+//                 return {
+//                     ...product.toObject(),
+//                     minPrice: 0,
+//                     maxPrice: 0
+//                 };
+//             }
+//             const prices = product.variations.map(v => v.salePrice);
+//             const minPrice = Math.min(...prices);
+//             const maxPrice = Math.max(...prices);
+//             return {
+//                 ...product.toObject(),
+//                 minPrice,
+//                 maxPrice
+//             };
+//         });
+
+//         res.successResponse({
+//             products: productsWithPriceRange
+//         }, 'Fetched all products successfully', 200, {
+//             totalProducts: count,
+//             pageSize: parseInt(limit),
+//             currentPage: parseInt(page),
+//             totalPages: Math.ceil(count / parseInt(limit))
+//         });
+//     } catch (err) {
+//         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
+//     }
+// });
 
 router.get('/minmaxprice/:productId', async function (req, res) {
     try {
@@ -232,7 +364,7 @@ router.put("/update-stock/:productId", async (req, res) => {
     try {
         const { productId } = req.params;
         const { variations } = req.body;
-        
+
         if (!variations || !Array.isArray(variations) || variations.length === 0) {
             return res.status(400).json({ message: "Dữ liệu variations không hợp lệ!" });
         }

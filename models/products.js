@@ -6,7 +6,12 @@ const productSchema = new mongoose.Schema({
     name: { type: String, required: true },
     description: { type: String, required: true },
     avatar: { type: String, required: true },
-    category: { type: String, required: true }, // Loại hàng chính
+    category: {
+        type: String,
+        required: true,
+        ref: 'ProductCategory',
+        index: true
+    },
     brand: { type: String, required: true }, // Tên thương hiệu
     variations: [
         {

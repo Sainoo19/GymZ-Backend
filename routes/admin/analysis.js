@@ -11,109 +11,109 @@ const customResponse = require('../../utils/customResponse');
 const moment = require("moment");
 
 const router = express.Router();
-router.use(customResponse); 
+router.use(customResponse);
 const statusOrder = "Đặt hàng thành công";
 const statusMember = "ACTIVE";
 
 router.get(
-    "/frequently-bought-together",
-    authenticate,
-    authorize(["admin", "manager"]),
-    async (req, res) => {
-      try {
-        // 1. Lấy ngày giới hạn (10 ngày trước)
-        const sixtyDaysAgo = new Date();
-        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 10);
-        console.log("sixtyDaysAgo", sixtyDaysAgo);
-        
-        // 2. Lọc đơn hàng trong 10 ngày gần nhất
-        const orders = await Order.find({ createdAt: { $gte: sixtyDaysAgo } });
-        if (!orders.length) {
-          return res.json({ recommendations: [] }); // Không có dữ liệu
-        }
-  
-        // 3. Tạo đối tượng để lưu số lần các sản phẩm xuất hiện cùng nhau
-        let productPairs = {};
-        let totalCount = 0;
-        let totalPairs = 0;
-  
-        orders.forEach((order) => {
-          console.log("Items in order:", JSON.stringify(order.items, null, 2)); // Log the detailed structure of items
-  
-          // Kiểm tra nếu đơn hàng có sản phẩm bị trùng ID thì bỏ qua đơn hàng đó
-          const productIds = order.items.map((item) => item.product_id);
-          console.log("productIds", productIds);
-  
-          const uniqueProductIds = new Set(productIds);
-          if (uniqueProductIds.size !== productIds.length) {
-            console.log("Skipping order due to duplicate product IDs");
-            return; // Bỏ qua đơn hàng này nếu có sản phẩm trùng
-          }
+  "/frequently-bought-together",
+  authenticate,
+  authorize(["admin", "manager"]),
+  async (req, res) => {
+    try {
+      // 1. Lấy ngày giới hạn (10 ngày trước)
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 10);
+      console.log("sixtyDaysAgo", sixtyDaysAgo);
 
-          // Duyệt từng cặp sản phẩm trong đơn hàng nếu đơn hàng có từ 2 sản phẩm trở lên
-          if (order.items.length > 1) {
-            order.items.forEach((itemA, index) => {
-              for (let j = index + 1; j < order.items.length; j++) {
-                const itemB = order.items[j];
-  
-                // Sắp xếp ID để tránh trùng lặp (A_B và B_A giống nhau)
-                const key = [itemA.product_id, itemB.product_id].sort().join("_");
-                productPairs[key] = (productPairs[key] || 0) + 1;
-                totalCount += 1; // Tổng số lần xuất hiện của các cặp
-              }
-            });
-          }
-          
-        });
-        console.log("totalCount", totalCount);
-
-        console.log("productPairs:", productPairs); // Log the final product pairs object
-  
-        totalPairs = Object.keys(productPairs).length;
-        const averageCount = totalPairs ? totalCount / totalPairs : 0; // Tính trung bình
-  
-        // 4. Chuyển danh sách cặp sản phẩm thành mảng và sắp xếp theo số lần xuất hiện
-        let sortedPairs = Object.entries(productPairs)
-          .sort((a, b) => b[1] - a[1]) // Sắp xếp theo tần suất xuất hiện
-          .map(([key, count]) => {
-            const [product1, product2] = key.split("_");
-            return { product1, product2, count };
-          })
-          .filter((pair) => pair.count > averageCount); // Chỉ lấy những cặp sản phẩm có số lần mua lớn hơn trung bình
-  
-        // 5. Lấy thông tin chi tiết sản phẩm từ DB
-        const recommendations = await Promise.all(
-          sortedPairs.map(async ({ product1, product2, count }) => {
-            const p1 = await Product.findById(product1);
-            const p2 = await Product.findById(product2);
-            if (!p1 || !p2) return null;
-  
-            return {
-              product1: {
-                _id: p1._id,
-                name: p1.name,
-                avatar: p1.avatar,
-              },
-              product2: {
-                _id: p2._id,
-                name: p2.name,
-                avatar: p2.avatar,
-              },
-              count,
-            };
-          })
-        );
-  
-        // Trả về danh sách sản phẩm thường mua chung, lọc các cặp sản phẩm bị null
-        res.json({ recommendations: recommendations.filter(Boolean) });
-      } catch (error) {
-        console.error("Lỗi khi lấy sản phẩm thường mua cùng:", error);
-        res.status(500).json({ error: "Lỗi server" });
+      // 2. Lọc đơn hàng trong 10 ngày gần nhất
+      const orders = await Order.find({ createdAt: { $gte: sixtyDaysAgo } });
+      if (!orders.length) {
+        return res.json({ recommendations: [] }); // Không có dữ liệu
       }
+
+      // 3. Tạo đối tượng để lưu số lần các sản phẩm xuất hiện cùng nhau
+      let productPairs = {};
+      let totalCount = 0;
+      let totalPairs = 0;
+
+      orders.forEach((order) => {
+        console.log("Items in order:", JSON.stringify(order.items, null, 2)); // Log the detailed structure of items
+
+        // Kiểm tra nếu đơn hàng có sản phẩm bị trùng ID thì bỏ qua đơn hàng đó
+        const productIds = order.items.map((item) => item.product_id);
+        console.log("productIds", productIds);
+
+        const uniqueProductIds = new Set(productIds);
+        if (uniqueProductIds.size !== productIds.length) {
+          console.log("Skipping order due to duplicate product IDs");
+          return; // Bỏ qua đơn hàng này nếu có sản phẩm trùng
+        }
+
+        // Duyệt từng cặp sản phẩm trong đơn hàng nếu đơn hàng có từ 2 sản phẩm trở lên
+        if (order.items.length > 1) {
+          order.items.forEach((itemA, index) => {
+            for (let j = index + 1; j < order.items.length; j++) {
+              const itemB = order.items[j];
+
+              // Sắp xếp ID để tránh trùng lặp (A_B và B_A giống nhau)
+              const key = [itemA.product_id, itemB.product_id].sort().join("_");
+              productPairs[key] = (productPairs[key] || 0) + 1;
+              totalCount += 1; // Tổng số lần xuất hiện của các cặp
+            }
+          });
+        }
+
+      });
+      console.log("totalCount", totalCount);
+
+      console.log("productPairs:", productPairs); // Log the final product pairs object
+
+      totalPairs = Object.keys(productPairs).length;
+      const averageCount = totalPairs ? totalCount / totalPairs : 0; // Tính trung bình
+
+      // 4. Chuyển danh sách cặp sản phẩm thành mảng và sắp xếp theo số lần xuất hiện
+      let sortedPairs = Object.entries(productPairs)
+        .sort((a, b) => b[1] - a[1]) // Sắp xếp theo tần suất xuất hiện
+        .map(([key, count]) => {
+          const [product1, product2] = key.split("_");
+          return { product1, product2, count };
+        })
+        .filter((pair) => pair.count > averageCount); // Chỉ lấy những cặp sản phẩm có số lần mua lớn hơn trung bình
+
+      // 5. Lấy thông tin chi tiết sản phẩm từ DB
+      const recommendations = await Promise.all(
+        sortedPairs.map(async ({ product1, product2, count }) => {
+          const p1 = await Product.findById(product1);
+          const p2 = await Product.findById(product2);
+          if (!p1 || !p2) return null;
+
+          return {
+            product1: {
+              _id: p1._id,
+              name: p1.name,
+              avatar: p1.avatar,
+            },
+            product2: {
+              _id: p2._id,
+              name: p2.name,
+              avatar: p2.avatar,
+            },
+            count,
+          };
+        })
+      );
+
+      // Trả về danh sách sản phẩm thường mua chung, lọc các cặp sản phẩm bị null
+      res.json({ recommendations: recommendations.filter(Boolean) });
+    } catch (error) {
+      console.error("Lỗi khi lấy sản phẩm thường mua cùng:", error);
+      res.status(500).json({ error: "Lỗi server" });
     }
-  );
-  
-  
+  }
+);
+
+
 router.get("/profitByMonth", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
@@ -277,8 +277,8 @@ router.get("/revenue", authenticate, authorize(['admin', 'manager']), async (req
     let growthRate =
       previousMonthRevenue > 0
         ? ((currentMonthRevenue - previousMonthRevenue) /
-            previousMonthRevenue) *
-          100
+          previousMonthRevenue) *
+        100
         : 0;
 
     res.json({
@@ -303,37 +303,66 @@ router.get("/revenue", authenticate, authorize(['admin', 'manager']), async (req
 });
 
 const getMonthlyProfit = async (year) => {
-  const orders = await Order.find({ status: statusOrder });
+  // Tạo bộ lọc để chỉ lấy đơn hàng trong năm
+  const yearFilter = {
+    status: statusOrder,
+    createdAt: {
+      $gte: new Date(`${year}-01-01T00:00:00.000Z`),
+      $lte: new Date(`${year}-12-31T23:59:59.999Z`),
+    }
+  };
 
+  // Lấy đơn hàng và thông tin cần thiết
+  const orders = await Order.find(yearFilter)
+    .select('createdAt items')
+    .lean();
+
+  // Mảng chứa lợi nhuận theo tháng
   let monthlyProfit = Array.from({ length: 12 }, (_, index) => ({
     month: index + 1,
     year,
     profit: 0,
   }));
 
+  // Lấy danh sách các product_id duy nhất từ orders
+  const productIds = [...new Set(
+    orders.flatMap(order => order.items.map(item => item.product_id))
+  )];
+
+  // Tạo map để lưu trữ biến thể của sản phẩm - tối ưu bằng cách chỉ truy vấn DB một lần
+  const productVariationsMap = {};
+
+  // Lấy tất cả sản phẩm liên quan cùng lúc
+  const products = await Product.find({ _id: { $in: productIds } })
+    .select('_id variations')
+    .lean();
+
+  // Xây dựng map thông tin biến thể
+  products.forEach(product => {
+    productVariationsMap[product._id] = product.variations;
+  });
+
+  // Tính lợi nhuận
   for (const order of orders) {
     const orderDate = new Date(order.createdAt);
-    const month = orderDate.getMonth() + 1; // Lấy tháng
-    const year = orderDate.getFullYear();
+    const month = orderDate.getMonth(); // 0-indexed (0 = January)
 
     for (const item of order.items) {
-      const product = await Product.findOne(
-        {
-          _id: item.product_id,
-          "variations.category": item.category,
-          "variations.theme": item.theme || { $exists: true }, // Lọc đúng theme nếu có
-        },
-        { "variations.$": 1 } // Chỉ lấy biến thể khớp
+      const variations = productVariationsMap[item.product_id];
+      if (!variations) continue;
+
+      const variation = variations.find(v =>
+        v.category === item.category &&
+        (v.theme === item.theme || (!v.theme && !item.theme))
       );
 
-      if (!product) continue;
+      if (!variation) continue;
 
-      const variation = product.variations[0];
       const costPrice = variation.costPrice || 0;
       const salePrice = variation.salePrice || 0;
-
       const profit = (salePrice - costPrice) * item.quantity;
-      monthlyProfit[month - 1].profit += profit;
+
+      monthlyProfit[month].profit += profit;
     }
   }
 
@@ -343,10 +372,12 @@ const getMonthlyProfit = async (year) => {
 // API lấy lợi nhuận tháng hiện tại và tháng trước
 router.get("/profit", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
+    // Sử dụng cache nếu có thể - ví dụ với Redis
+
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
 
-    // Lấy lợi nhuận theo tháng của năm hiện tại
+    // Lấy lợi nhuận theo tháng của năm hiện tại - sử dụng hàm đã tối ưu
     const profitData = await getMonthlyProfit(currentYear);
 
     // Lợi nhuận tháng hiện tại
@@ -363,8 +394,7 @@ router.get("/profit", authenticate, authorize(['admin', 'manager']), async (req,
       previousYear = currentYear - 1;
       const lastYearProfit = await getMonthlyProfit(previousYear);
       previousMonthProfit =
-        lastYearProfit.find((item) => item.month === previousMonth)?.profit ||
-        0;
+        lastYearProfit.find((item) => item.month === previousMonth)?.profit || 0;
     } else {
       previousMonthProfit =
         profitData.find((item) => item.month === previousMonth)?.profit || 0;
@@ -373,8 +403,7 @@ router.get("/profit", authenticate, authorize(['admin', 'manager']), async (req,
     // Tính phần trăm tăng trưởng lợi nhuận so với tháng trước
     let growthRate =
       previousMonthProfit > 0
-        ? ((currentMonthProfit - previousMonthProfit) / previousMonthProfit) *
-          100
+        ? ((currentMonthProfit - previousMonthProfit) / previousMonthProfit) * 100
         : 0;
 
     res.json({
@@ -397,40 +426,7 @@ router.get("/profit", authenticate, authorize(['admin', 'manager']), async (req,
     res.status(500).json({ message: "Lỗi server!" });
   }
 });
-const getMonthlyOrders = async (year) => {
-  const orders = await Order.aggregate([
-    {
-      $match: {
-        createdAt: {
-          $gte: new Date(`${year}-01-01T00:00:00.000Z`),
-          $lte: new Date(`${year}-12-31T23:59:59.999Z`),
-        },
-        status: statusOrder, // Chỉ lấy đơn hàng đã hoàn thành
-      },
-    },
-    {
-      $group: {
-        _id: { month: { $month: "$createdAt" } },
-        totalOrders: { $sum: 1 }, // Đếm số đơn hàng
-      },
-    },
-    { $sort: { "_id.month": 1 } },
-  ]);
 
-  // Mảng mặc định có đủ 12 tháng với số đơn hàng = 0
-  const formattedOrders = Array.from({ length: 12 }, (_, index) => ({
-    month: index + 1,
-    year,
-    totalOrders: 0,
-  }));
-
-  // Cập nhật số đơn hàng nếu có dữ liệu
-  orders.forEach((item) => {
-    formattedOrders[item._id.month - 1].totalOrders = item.totalOrders;
-  });
-
-  return formattedOrders;
-};
 router.get("/revenueByMonth", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
@@ -472,10 +468,10 @@ router.get("/revenueByMonth", authenticate, authorize(['admin', 'manager']), asy
     // Tính % tăng trưởng
     const growthRate = previousMonthRevenue.revenue
       ? (
-          ((currentMonthRevenue.revenue - previousMonthRevenue.revenue) /
-            previousMonthRevenue.revenue) *
-          100
-        ).toFixed(2)
+        ((currentMonthRevenue.revenue - previousMonthRevenue.revenue) /
+          previousMonthRevenue.revenue) *
+        100
+      ).toFixed(2)
       : "0";
 
     // Chuẩn bị dữ liệu phản hồi
@@ -494,8 +490,45 @@ router.get("/revenueByMonth", authenticate, authorize(['admin', 'manager']), asy
   }
 });
 
+// Thêm hàm này trước khi sử dụng ở route /orderStats
+const getMonthlyOrders = async (year) => {
+  // Sử dụng aggregation để tối ưu hiệu suất
+  const orders = await Order.aggregate([
+    {
+      $match: {
+        createdAt: {
+          $gte: new Date(`${year}-01-01T00:00:00.000Z`),
+          $lte: new Date(`${year}-12-31T23:59:59.999Z`),
+        },
+        status: statusOrder
+      }
+    },
+    {
+      $group: {
+        _id: { month: { $month: "$createdAt" } },
+        totalOrders: { $sum: 1 }
+      }
+    },
+    { $sort: { "_id.month": 1 } }
+  ]);
+
+  // Tạo mảng kết quả với đầy đủ 12 tháng
+  const formattedOrders = Array.from({ length: 12 }, (_, index) => ({
+    month: index + 1,
+    year,
+    totalOrders: 0
+  }));
+
+  // Điền dữ liệu vào các tháng có đơn hàng
+  orders.forEach(item => {
+    formattedOrders[item._id.month - 1].totalOrders = item.totalOrders;
+  });
+
+  return formattedOrders;
+};
+
 // API lấy số đơn hàng tháng hiện tại và tháng trước
-router.get("/orderStats",  authenticate, authorize(['admin', 'manager']), async (req, res) => {
+router.get("/orderStats", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
@@ -529,7 +562,7 @@ router.get("/orderStats",  authenticate, authorize(['admin', 'manager']), async 
     let growthRate =
       previousMonthOrders > 0
         ? ((currentMonthOrders - previousMonthOrders) / previousMonthOrders) *
-          100
+        100
         : 0;
 
     res.json({
@@ -555,57 +588,67 @@ router.get("/orderStats",  authenticate, authorize(['admin', 'manager']), async 
 
 router.get("/best-selling-products", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
-    const orders = await Order.find({ status: statusOrder });
-
-    let productSales = {}; // Lưu trữ số lượng bán của từng sản phẩm
-
-    for (const order of orders) {
-      for (const item of order.items) {
-        const key = `${item.product_id}_${item.category}_${
-          item.theme || "no-theme"
-        }`;
-
-        if (!productSales[key]) {
-          productSales[key] = {
-            product_id: item.product_id,
-            avatar: item.avatar,
-            category: item.category,
-            theme: item.theme,
-            soldCount: 0,
-          };
+    // 1. Sử dụng aggregation để tính số lượng bán của từng sản phẩm/biến thể
+    const productSales = await Order.aggregate([
+      { $match: { status: statusOrder } },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: {
+            product_id: "$items.product_id",
+            category: "$items.category",
+            theme: { $ifNull: ["$items.theme", "no-theme"] }
+          },
+          soldCount: { $sum: "$items.quantity" },
+          avatar: { $first: "$items.avatar" }
         }
+      },
+      { $sort: { soldCount: -1 } }
+    ]);
 
-        productSales[key].soldCount += item.quantity;
-      }
-    }
+    // 2. Lấy danh sách các ID sản phẩm duy nhất
+    const productIds = [...new Set(productSales.map(item => item._id.product_id))];
 
-    // Chuyển object thành mảng, sắp xếp theo số lượng bán giảm dần
-    let sortedProducts = Object.values(productSales).sort(
-      (a, b) => b.soldCount - a.soldCount
-    );
+    // 3. Lấy tất cả thông tin sản phẩm cần thiết trong một lần truy vấn
+    const products = await Product.find(
+      { _id: { $in: productIds } },
+      { _id: 1, name: 1, price: 1, avatar: 1 }
+    ).lean();
 
-    // Lấy sản phẩm chi tiết từ DB
-    let bestSellingProducts = await Promise.all(
-      sortedProducts.map(async (prod) => {
-        const product = await Product.findById(prod.product_id);
+    // 4. Tạo map để truy cập thông tin sản phẩm nhanh hơn
+    const productMap = {};
+    products.forEach(product => {
+      productMap[product._id] = product;
+    });
+
+    // 5. Kết hợp dữ liệu cho phản hồi
+    const bestSellingProducts = productSales
+      .filter(item => productMap[item._id.product_id]) // Chỉ giữ lại các sản phẩm tồn tại
+      .map(item => {
+        const product = productMap[item._id.product_id];
         return {
           _id: product._id,
           name: product.name,
-          category: prod.category,
-          theme: prod.theme !== "no-theme" ? prod.theme : null,
-          soldCount: prod.soldCount,
+          category: item._id.category,
+          theme: item._id.theme !== "no-theme" ? item._id.theme : null,
+          soldCount: item.soldCount,
           price: product.price,
-          avatar: product.avatar,
+          avatar: product.avatar || item.avatar
         };
-      })
-    );
+      });
 
-    res.json({ success: true, bestSellingProducts });
+    res.json({
+      success: true,
+      bestSellingProducts,
+      totalProducts: bestSellingProducts.length
+    });
+
   } catch (error) {
     console.error("Lỗi khi lấy sản phẩm bán chạy nhất:", error);
     res.status(500).json({ success: false, message: "Lỗi server!" });
   }
 });
+
 const getRevenueByMonth = async (year, month) => {
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0, 23, 59, 59);
@@ -853,7 +896,7 @@ const predictStockNeeded = (salesHistory, currentStock) => {
 };
 
 // API lấy danh sách sản phẩm và dự đoán số lượng cần nhập cho từng biến thể
-router.get("/predict-stock",  authenticate, authorize(['admin', 'manager']), async (req, res) => {
+router.get("/predict-stock", authenticate, authorize(['admin', 'manager']), async (req, res) => {
   try {
     const products = await Product.find().lean();
     let stockPredictions = [];
@@ -1012,11 +1055,11 @@ router.get("/count-by-type", authenticate, authorize(['admin', 'manager']), asyn
 });
 router.get("/getbranches", async (req, res) => {
   try {
-      const branches = await Branch.find({}, { _id: 1, name: 1 });
-      res.json(branches); // Trả về tất cả branch
+    const branches = await Branch.find({}, { _id: 1, name: 1 });
+    res.json(branches); // Trả về tất cả branch
   } catch (error) {
-      console.error("Error fetching branches:", error);
-      res.status(500).json({ message: "Internal Server Error" });
+    console.error("Error fetching branches:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 router.get('/member-distribution', async (req, res) => {
@@ -1054,7 +1097,7 @@ router.get('/member-distribution', async (req, res) => {
       message: 'Member distribution fetched successfully',
       data: result
     });
-    
+
   } catch (err) {
     console.error("Error in /member-distribution:", err);
     res.status(500).json({ message: "Internal Server Error", error: err.message });
@@ -1068,91 +1111,91 @@ router.get("/revenue-member-by-month", async (req, res) => {
   try {
     const today = new Date();
     const futureDate = new Date();
-    futureDate.setMonth(futureDate.getMonth() + 12); 
+    futureDate.setMonth(futureDate.getMonth() + 12);
 
     const bills = await MemberBill.aggregate([
-        {
-            $lookup: {
-                from: 'members',
-                localField: 'memberID',
-                foreignField: '_id',
-                as: 'member'
-            }
-        },
-        { $unwind: '$member' },
-        {
-            $match: {
-                'member.validUntil': {
-                    $gte: today,
-                    $lte: futureDate
-                }
-            }
-        },
-        {
-            $project: {
-                amount: 1,
-                validFrom: '$member.validFrom',
-                validUntil: '$member.validUntil',
-                type: '$member.type'
-            }
+      {
+        $lookup: {
+          from: 'members',
+          localField: 'memberID',
+          foreignField: '_id',
+          as: 'member'
         }
+      },
+      { $unwind: '$member' },
+      {
+        $match: {
+          'member.validUntil': {
+            $gte: today,
+            $lte: futureDate
+          }
+        }
+      },
+      {
+        $project: {
+          amount: 1,
+          validFrom: '$member.validFrom',
+          validUntil: '$member.validUntil',
+          type: '$member.type'
+        }
+      }
     ]);
 
     const monthlyMap = {};
 
     bills.forEach(bill => {
-        const { amount, validFrom, validUntil, type } = bill;
-        if (!validFrom || !validUntil || !type) return;
+      const { amount, validFrom, validUntil, type } = bill;
+      if (!validFrom || !validUntil || !type) return;
 
-        const start = new Date(validFrom);
-        const end = new Date(validUntil);
-        const months = [];
+      const start = new Date(validFrom);
+      const end = new Date(validUntil);
+      const months = [];
 
-        const current = new Date(start.getFullYear(), start.getMonth(), 1);
-        while (current <= end) {
-            const monthKey = `${current.getFullYear()}-${(current.getMonth() + 1).toString().padStart(2, '0')}`;
-            months.push(monthKey);
-            current.setMonth(current.getMonth() + 1);
+      const current = new Date(start.getFullYear(), start.getMonth(), 1);
+      while (current <= end) {
+        const monthKey = `${current.getFullYear()}-${(current.getMonth() + 1).toString().padStart(2, '0')}`;
+        months.push(monthKey);
+        current.setMonth(current.getMonth() + 1);
+      }
+
+      const amountPerMonth = amount / months.length;
+
+      months.forEach(month => {
+        if (!monthlyMap[month]) {
+          monthlyMap[month] = {
+            typeRevenue: {},
+            totalRevenue: 0
+          };
         }
 
-        const amountPerMonth = amount / months.length;
+        if (!monthlyMap[month].typeRevenue[type]) {
+          monthlyMap[month].typeRevenue[type] = 0;
+        }
 
-        months.forEach(month => {
-            if (!monthlyMap[month]) {
-                monthlyMap[month] = {
-                    typeRevenue: {},
-                    totalRevenue: 0
-                };
-            }
-
-            if (!monthlyMap[month].typeRevenue[type]) {
-                monthlyMap[month].typeRevenue[type] = 0;
-            }
-
-            monthlyMap[month].typeRevenue[type] += amountPerMonth;
-            monthlyMap[month].totalRevenue += amountPerMonth;
-        });
+        monthlyMap[month].typeRevenue[type] += amountPerMonth;
+        monthlyMap[month].totalRevenue += amountPerMonth;
+      });
     });
 
     const result = Object.entries(monthlyMap).map(([month, data]) => ({
-        month,
-        typeRevenue: Object.fromEntries(
-            Object.entries(data.typeRevenue).map(([type, value]) => [type, Math.round(value)])
-        ),
-        totalRevenue: Math.round(data.totalRevenue)
+      month,
+      typeRevenue: Object.fromEntries(
+        Object.entries(data.typeRevenue).map(([type, value]) => [type, Math.round(value)])
+      ),
+      totalRevenue: Math.round(data.totalRevenue)
     }));
 
     result.sort((a, b) => a.month.localeCompare(b.month));
 
     res.json({
-        status: 'success',
-        data: result
+      status: 'success',
+      data: result
     });
 
-} catch (err) {
+  } catch (err) {
     console.error(err);
     res.status(500).json({ status: 'error', message: 'Server error' });
-}
+  }
 });
 
 

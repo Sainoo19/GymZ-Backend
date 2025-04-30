@@ -22,7 +22,7 @@ router.use(customResponse);
 
 router.get('/all/active', async function (req, res, next) {
     try {
-        const { categories, brands, priceMin, priceMax, search, sortBy, page = 1, limit = 10 } = req.query;
+        const { categories, brands, priceMin, priceMax, search, sortBy, page = 1, limit = 8 } = req.query;
 
         const filters = { status: "active" };
 
@@ -31,7 +31,7 @@ router.get('/all/active', async function (req, res, next) {
             const categoryNames = categories.split(",");
             const matchedCategories = await ProductCategory.find({ name: { $in: categoryNames } }, { _id: 1 });
             const categoryIds = matchedCategories.map(cat => cat._id);
-        
+
             if (categoryIds.length > 0) {
                 filters.category = { $in: categoryIds }; // Lọc theo `_id` thay vì tên
             }
@@ -42,18 +42,18 @@ router.get('/all/active', async function (req, res, next) {
             filters.brand = { $in: brands.split(",").map(brand => brand.trim()) };
         }
 
-            // ✅ Lọc sản phẩm theo khoảng giá
-            if (priceMin || priceMax) {
-                filters['variations.salePrice'] = {};  
-    
-                if (priceMin) {
-                    filters['variations.salePrice'] = { ...filters['variations.salePrice'], $gte: parseInt(priceMin) };
-                }
-                if (priceMax) {
-                    filters['variations.salePrice'] = { ...filters['variations.salePrice'], $lte: parseInt(priceMax) };
-                }
+        // ✅ Lọc sản phẩm theo khoảng giá
+        if (priceMin || priceMax) {
+            filters['variations.salePrice'] = {};
+
+            if (priceMin) {
+                filters['variations.salePrice'] = { ...filters['variations.salePrice'], $gte: parseInt(priceMin) };
             }
-    
+            if (priceMax) {
+                filters['variations.salePrice'] = { ...filters['variations.salePrice'], $lte: parseInt(priceMax) };
+            }
+        }
+
 
         // ✅ Tìm kiếm theo tên sản phẩm
         if (search) {
@@ -100,13 +100,13 @@ router.get('/all/active', async function (req, res, next) {
 router.get('/filter-by-price', async function (req, res, next) {
     try {
         let { minPrice, maxPrice } = req.query;
-        
+
         // Chuyển đổi minPrice và maxPrice sang số
         minPrice = parseFloat(minPrice) || 0;
         maxPrice = parseFloat(maxPrice) || Infinity;
-        
+
         const products = await Product.find();
-        
+
         // Lọc sản phẩm theo khoảng giá
         const filteredProducts = products.map(product => {
             if (!product.variations || product.variations.length === 0) {
@@ -115,14 +115,14 @@ router.get('/filter-by-price', async function (req, res, next) {
 
             const salePrices = product.variations.map(v => v.salePrice);
             const minSalePrice = Math.min(...salePrices);
-            
+
             return {
                 ...product.toObject(),
                 minSalePrice,
             };
-        }).filter(product => 
+        }).filter(product =>
             product.minSalePrice !== null &&
-            product.minSalePrice >= minPrice && 
+            product.minSalePrice >= minPrice &&
             product.minSalePrice <= maxPrice
         );
 
@@ -196,7 +196,7 @@ router.get("/categories", async (req, res) => {
             { _id: { $in: productCategories } },
             { name: 1, _id: 1 } // ✅ Lấy cả ID danh mục
         );
-        
+
 
         res.json(categories);
     } catch (error) {
@@ -333,30 +333,30 @@ router.get('/:id', async function (req, res, next) {
 // router.put("/update-stock", async (req, res) => {
 //     try {
 //       const { orderId } = req.body;
-  
+
 //       // Tìm đơn hàng trong database
 //       const order = await Order.findById(orderId);
 //       if (!order) {
 //         return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
 //       }
-  
+
 //       // Lặp qua từng sản phẩm trong đơn hàng
 //       for (const item of order.items) {
 //         const { product_id, category, theme, quantity } = item;
-  
+
 //         // Tìm sản phẩm dựa trên ID, category và theme (nếu có)
 //         const product = await Product.findOne({
 //           _id: product_id,
 //           "variations.category": category,
 //           ...(theme && { "variations.theme": theme }),
 //         });
-  
+
 //         if (product) {
 //           // Tìm đúng biến thể có category và theme
 //           const variation = product.variations.find(
 //             (v) => v.category === category && (!theme || v.theme === theme)
 //           );
-  
+
 //           if (variation) {
 //             // Kiểm tra số lượng tồn kho
 //             if (variation.stock >= quantity) {
@@ -380,14 +380,14 @@ router.get('/:id', async function (req, res, next) {
 //           });
 //         }
 //       }
-  
+
 //       res.status(200).json({ message: "Cập nhật số lượng sản phẩm thành công!" });
 //     } catch (error) {
 //       console.error("Lỗi cập nhật kho hàng:", error);
 //       res.status(500).json({ message: "Lỗi server" });
 //     }
 //   });
-  
-  
+
+
 
 module.exports = router;
