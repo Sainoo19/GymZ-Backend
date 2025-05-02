@@ -360,6 +360,7 @@ router.get('/:id', async function (req, res, next) {
     }
 });
 
+
 router.put("/update-stock/:productId", async (req, res) => {
     try {
         const { productId } = req.params;
@@ -369,20 +370,19 @@ router.put("/update-stock/:productId", async (req, res) => {
             return res.status(400).json({ message: "Dữ liệu variations không hợp lệ!" });
         }
 
-
         const product = await Product.findById(productId);
         if (!product) {
             return res.status(404).json({ message: "Sản phẩm không tồn tại!" });
         }
 
-
         product.variations.forEach((variation) => {
-            const updatedVariation = variations.find(
-                (v) => v.category === variation.category && v.theme === variation.theme
+            // Tìm theo _id thay vì category và theme
+            const updatedVariation = variations.find(v =>
+                v._id && variation._id && v._id.toString() === variation._id.toString()
             );
 
             if (updatedVariation) {
-                console.log(`Cập nhật stock cho ${variation.category} - ${variation.theme}`);
+                console.log(`Cập nhật stock cho variation ID: ${variation._id}, hiện tại ${variation.stock}, thêm ${Number(updatedVariation.additionalStock)}`);
                 variation.stock += Number(updatedVariation.additionalStock || 0);
             }
         });
@@ -391,7 +391,11 @@ router.put("/update-stock/:productId", async (req, res) => {
         await product.save();
         console.log("Cập nhật thành công:", product.variations);
 
-        res.json({ message: "Cập nhật stock thành công", product });
+        res.json({
+            message: "Cập nhật stock thành công",
+            status: "success",
+            data: product
+        });
     } catch (error) {
         console.error("Lỗi cập nhật stock:", error);
         res.status(500).json({ message: "Lỗi server", error: error.message });
