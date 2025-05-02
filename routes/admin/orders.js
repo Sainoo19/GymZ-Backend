@@ -244,99 +244,102 @@ router.get("/all/nopagination", async function (req, res, next) {
 // Enhanced top-seller API with detailed product information
 router.get("/products/top", async (req, res) => {
   try {
-    // Get top selling products by quantity
+    const limit = 8; // Giới hạn số lượng sản phẩm
+
+    // Dùng một pipeline aggregation thay vì nhiều truy vấn
     const topProducts = await Order.aggregate([
-      { $unwind: "$items" }, // Separate each product in items into a different document
+      { $unwind: "$items" },
       {
         $group: {
           _id: "$items.product_id",
-          totalQuantity: { $sum: "$items.quantity" }, // Calculate total quantity for each product
+          totalQuantity: { $sum: "$items.quantity" },
         },
       },
-      { $sort: { totalQuantity: -1 } }, // Sort in descending order by quantity
-      { $limit: 8 }, // Limit to top 8 products
-    ]);
-
-    if (topProducts.length === 0) {
-      return res.errorResponse("No products found", 404);
-    }
-
-    // Get the product IDs
-    const productIds = topProducts.map((product) => product._id);
-
-    // Fetch detailed product information
-    const productDetails = await Product.find({ _id: { $in: productIds } });
-
-    // Fetch ratings for these products
-    const productRatings = await Review.aggregate([
-      { $match: { product_id: { $in: productIds }, status: "active" } },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: limit },
       {
-        $group: {
-          _id: "$product_id",
-          averageRating: { $avg: "$rating" },
-          totalReviews: { $sum: 1 },
-        },
+        $lookup: {
+          from: "products", // Collection name (thường là tên model nhưng viết thường số nhiều)
+          localField: "_id",
+          foreignField: "_id",
+          as: "productDetail"
+        }
       },
+      { $unwind: "$productDetail" },
+      {
+        $lookup: {
+          from: "reviews",
+          let: { productId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$product_id", "$$productId"] },
+                    { $eq: ["$status", "active"] }
+                  ]
+                }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                averageRating: { $avg: "$rating" },
+                totalReviews: { $sum: 1 }
+              }
+            }
+          ],
+          as: "ratingData"
+        }
+      },
+      {
+        $project: {
+          _id: "$productDetail._id",
+          name: "$productDetail.name",
+          variations: "$productDetail.variations",
+          avatar: "$productDetail.avatar",
+          images: "$productDetail.images",
+          quantitySold: "$totalQuantity",
+          rating: { $ifNull: [{ $arrayElemAt: ["$ratingData.averageRating", 0] }, 0] },
+          reviewCount: { $ifNull: [{ $arrayElemAt: ["$ratingData.totalReviews", 0] }, 0] }
+        }
+      }
     ]);
 
-    // Map ratings to a more accessible format
-    const ratingsMap = {};
-    productRatings.forEach((rating) => {
-      ratingsMap[rating._id] = {
-        averageRating: parseFloat(rating.averageRating.toFixed(1)),
-        totalReviews: rating.totalReviews,
-      };
-    });
-
-    // Combine all data into the final response
-    const enhancedProducts = productDetails.map((product) => {
-      // Find quantity sold data
-      const quantityData = topProducts.find(
-        (tp) => tp._id === product._id.toString()
-      );
-
-      // Calculate price range from variations
+    // Xử lý dữ liệu cuối cùng (price range và format)
+    const enhancedProducts = topProducts.map(product => {
+      // Tính giá thấp nhất và cao nhất
       let minPrice = Infinity;
       let maxPrice = 0;
 
-      product.variations.forEach((variation) => {
-        const price = variation.salePrice;
-        if (price < minPrice) minPrice = price;
-        if (price > maxPrice) maxPrice = price;
-      });
+      if (product.variations && product.variations.length) {
+        product.variations.forEach(variation => {
+          const price = variation.salePrice;
+          if (price < minPrice) minPrice = price;
+          if (price > maxPrice) maxPrice = price;
+        });
+      }
 
-      // Format price range
-      const priceRange =
-        minPrice === maxPrice
-          ? `${minPrice}`
-          : `${minPrice}-${maxPrice}`;
+      // Format giá
+      const priceRange = minPrice === maxPrice
+        ? `${minPrice}`
+        : `${minPrice}-${maxPrice}`;
 
-      // Get first image
-      const firstImage = product.avatar || (product.images && product.images.length > 0 ? product.images[0] : "");
+      // Lấy hình ảnh đầu tiên
+      const image = product.avatar || (product.images && product.images.length > 0 ? product.images[0] : "");
 
-      // Get rating data or provide defaults
-      const ratingData = ratingsMap[product._id] || {
-        averageRating: 0,
-        totalReviews: 0,
-      };
+      // Format rating
+      const formattedRating = parseFloat((product.rating || 0).toFixed(1));
 
-      // Build enhanced product object
       return {
         _id: product._id,
         name: product.name,
         priceRange: priceRange,
-        image: firstImage,
-        rating: ratingData.averageRating,
-        reviewCount: ratingData.totalReviews,
-        quantitySold: quantityData ? quantityData.totalQuantity : 0,
+        image: image,
+        rating: formattedRating,
+        reviewCount: product.reviewCount || 0,
+        quantitySold: product.quantitySold || 0
       };
-    });
-
-    // Sort the enhanced products by the original quantity order
-    enhancedProducts.sort((a, b) => {
-      const aQuantity = topProducts.find((tp) => tp._id === a._id)?.totalQuantity || 0;
-      const bQuantity = topProducts.find((tp) => tp._id === b._id)?.totalQuantity || 0;
-      return bQuantity - aQuantity;
     });
 
     res.successResponse(
@@ -353,6 +356,5 @@ router.get("/products/top", async (req, res) => {
     );
   }
 });
-
 
 module.exports = router;

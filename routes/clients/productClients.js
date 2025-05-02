@@ -1,39 +1,67 @@
 const express = require('express');
-const Product = require('../../models/products'); // Assuming you have a Product model
-const ProductCategory = require('../../models/productCategories')
+const Product = require('../../models/products');
+const ProductCategory = require('../../models/productCategories');
 const customResponse = require('../../utils/customResponse');
 const generateId = require('../../utils/generateId');
+const mongoose = require('mongoose'); // Thêm import mongoose
 const router = express.Router();
-const Order = require("../../models/orders"); // Model đơn hàng
-
+const Order = require("../../models/orders");
 
 // Sử dụng middleware customResponse
 router.use(customResponse);
 
-/* GET all products active from database. */
-// router.get('/all/active', async function (req, res, next) {
-//     try {
-//         const products = await Product.find({ status: "active" });
-//         res.successResponse(products, 'Fetched all active products successfully');
-//     } catch (err) {
-//         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
-//     }
-// });
+/**
+ * Hàm helper để định dạng sản phẩm trả về client
+ * Định nghĩa ở đầu để có thể sử dụng trong nhiều route
+ */
+function formatProductsResponse(products) {
+    return products.map(product => {
+        // Tính giá thấp nhất và cao nhất từ variations
+        let minPrice = Infinity;
+        let maxPrice = 0;
 
+        if (product.variations && product.variations.length > 0) {
+            product.variations.forEach(variation => {
+                const salePrice = variation.salePrice;
+                minPrice = Math.min(minPrice, salePrice);
+                maxPrice = Math.max(maxPrice, salePrice);
+            });
+        }
+
+        // Format lại sản phẩm để trả về client
+        return {
+            _id: product._id,
+            name: product.name,
+            avatar: product.avatar,
+            minPrice: minPrice === Infinity ? null : minPrice,
+            maxPrice: maxPrice === 0 ? null : maxPrice,
+            priceRange: minPrice === maxPrice
+                ? `${minPrice}`
+                : `${minPrice} - ${maxPrice}`
+        };
+    });
+}
+
+/**
+ * ROUTE SPECIFIC trước route GENERIC
+ * Tất cả các route cụ thể như /all, /related phải đặt TRƯỚC route /:id
+ */
+
+// GET sản phẩm active với lọc và phân trang
 router.get('/all/active', async function (req, res, next) {
     try {
         const { categories, brands, priceMin, priceMax, search, sortBy, page = 1, limit = 8 } = req.query;
 
         const filters = { status: "active" };
 
-        // ✅ Chuẩn hóa category (xử lý nhiều categories, loại bỏ khoảng trắng thừa)
+        // ✅ Chuẩn hóa category
         if (categories) {
             const categoryNames = categories.split(",");
             const matchedCategories = await ProductCategory.find({ name: { $in: categoryNames } }, { _id: 1 });
             const categoryIds = matchedCategories.map(cat => cat._id);
 
             if (categoryIds.length > 0) {
-                filters.category = { $in: categoryIds }; // Lọc theo `_id` thay vì tên
+                filters.category = { $in: categoryIds };
             }
         }
 
@@ -54,11 +82,10 @@ router.get('/all/active', async function (req, res, next) {
             }
         }
 
-
         // ✅ Tìm kiếm theo tên sản phẩm
         if (search) {
             const searchRegex = new RegExp(search, 'i');
-            filters.name = searchRegex; // Chỉ tìm theo tên, tránh xung đột với category
+            filters.name = searchRegex;
         }
 
         // ✅ Sắp xếp theo giá
@@ -69,15 +96,16 @@ router.get('/all/active', async function (req, res, next) {
             sortOption = { 'variations.salePrice': -1 };
         }
 
-        // ✅ Bước 1: Lấy toàn bộ sản phẩm thỏa mãn bộ lọc
-        const allFilteredProducts = await Product.find(filters).sort(sortOption);
-
-        // ✅ Bước 2: Tính tổng số sản phẩm đúng điều kiện để phân trang
-        const totalProducts = allFilteredProducts.length;
+        // Tối ưu: dùng countDocuments thay vì lấy tất cả rồi đếm
+        const totalProducts = await Product.countDocuments(filters);
         const totalPages = Math.ceil(totalProducts / parseInt(limit));
 
-        // ✅ Bước 3: Lấy sản phẩm cho trang hiện tại
-        const products = allFilteredProducts.slice((page - 1) * limit, page * limit);
+        // Chỉ lấy sản phẩm cho trang hiện tại
+        const products = await Product.find(filters)
+            .sort(sortOption)
+            .skip((parseInt(page) - 1) * parseInt(limit))
+            .limit(parseInt(limit))
+            .lean();
 
         res.successResponse(
             { products },
@@ -95,36 +123,32 @@ router.get('/all/active', async function (req, res, next) {
     }
 });
 
-
-//inputPrice
+// GET sản phẩm theo khoảng giá
 router.get('/filter-by-price', async function (req, res, next) {
     try {
         let { minPrice, maxPrice } = req.query;
 
-        // Chuyển đổi minPrice và maxPrice sang số
         minPrice = parseFloat(minPrice) || 0;
         maxPrice = parseFloat(maxPrice) || Infinity;
 
-        const products = await Product.find();
-
-        // Lọc sản phẩm theo khoảng giá
-        const filteredProducts = products.map(product => {
-            if (!product.variations || product.variations.length === 0) {
-                return { ...product.toObject(), minSalePrice: null };
+        // Tối ưu: dùng aggregate để lọc trong database
+        const filteredProducts = await Product.aggregate([
+            {
+                $match: {
+                    status: "active"
+                }
+            },
+            {
+                $addFields: {
+                    minSalePrice: { $min: "$variations.salePrice" }
+                }
+            },
+            {
+                $match: {
+                    minSalePrice: { $gte: minPrice, $lte: maxPrice }
+                }
             }
-
-            const salePrices = product.variations.map(v => v.salePrice);
-            const minSalePrice = Math.min(...salePrices);
-
-            return {
-                ...product.toObject(),
-                minSalePrice,
-            };
-        }).filter(product =>
-            product.minSalePrice !== null &&
-            product.minSalePrice >= minPrice &&
-            product.minSalePrice <= maxPrice
-        );
+        ]);
 
         res.successResponse(filteredProducts, 'Fetched products within price range successfully');
     } catch (err) {
@@ -132,89 +156,98 @@ router.get('/filter-by-price', async function (req, res, next) {
     }
 });
 
-
-
-//lấy giá thấp nhất của 1 sản phẩm
+// GET giá thấp nhất của sản phẩm
 router.get('/minprice', async function (req, res, next) {
     try {
-        const products = await Product.find();
-
-        // Thêm minSalePrice vào mỗi sản phẩm
-        const formattedProducts = products.map(product => {
-            if (!product.variations || product.variations.length === 0) {
-                return { ...product.toObject(), minSalePrice: null };
+        // Tối ưu: dùng aggregate để tính trong database
+        const productsWithMinPrice = await Product.aggregate([
+            {
+                $addFields: {
+                    minSalePrice: {
+                        $cond: {
+                            if: { $gt: [{ $size: "$variations" }, 0] },
+                            then: { $min: "$variations.salePrice" },
+                            else: null
+                        }
+                    }
+                }
             }
+        ]);
 
-            const salePrices = product.variations.map(v => v.salePrice);
-            return {
-                ...product.toObject(),
-                minSalePrice: Math.min(...salePrices),
-            };
-        });
-
-        res.successResponse(formattedProducts, 'Fetched all products with min price successfully');
+        res.successResponse(productsWithMinPrice, 'Fetched all products with min price successfully');
     } catch (err) {
         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
     }
 });
 
-
-
-
+// GET danh sách brands duy nhất
 router.get("/brands", async (req, res) => {
     try {
-        // Lấy danh sách brand không trùng lặp từ sản phẩm có status "active"
         const brands = await Product.distinct("brand", { status: "active" });
-
         res.successResponse(brands, "Fetched all active brands successfully");
     } catch (err) {
         res.errorResponse("Failed to fetch brands", 500, {}, { error: err.message });
     }
 });
 
-//SORT A-Z and Z-A
+// GET sắp xếp sản phẩm theo tên A-Z hoặc Z-A
 router.get('/sort', async function (req, res, next) {
     try {
-        const { order } = req.query; // Lấy giá trị từ query parameters
-        const sortOrder = order === 'desc' ? -1 : 1; // Nếu order là 'desc' thì sắp xếp từ Z-A, ngược lại A-Z
+        const { order, page = 1, limit = 10 } = req.query;
+        const sortOrder = order === 'desc' ? -1 : 1;
 
-        const products = await Product.find({ status: "active" }).sort({ name: sortOrder });
+        const totalProducts = await Product.countDocuments({ status: "active" });
+        const products = await Product.find({ status: "active" })
+            .sort({ name: sortOrder })
+            .skip((parseInt(page) - 1) * parseInt(limit))
+            .limit(parseInt(limit))
+            .lean();
 
-        res.successResponse(products, `Fetched active products sorted ${sortOrder === 1 ? 'A-Z' : 'Z-A'} successfully`);
+        res.successResponse(
+            products,
+            `Fetched active products sorted ${sortOrder === 1 ? 'A-Z' : 'Z-A'} successfully`,
+            200,
+            {
+                totalProducts,
+                currentPage: parseInt(page),
+                pageSize: parseInt(limit),
+                totalPages: Math.ceil(totalProducts / parseInt(limit))
+            }
+        );
     } catch (err) {
         res.errorResponse('Failed to fetch sorted products', 500, {}, { error: err.message });
     }
 });
 
+// GET danh sách danh mục
 router.get("/categories", async (req, res) => {
     try {
-        // Lấy danh sách category ID từ bảng Product (loại bỏ trùng lặp)
-        const productCategories = await Product.distinct("category");
+        // Lấy danh sách category ID từ sản phẩm active
+        const productCategories = await Product.distinct("category", { status: "active" });
 
-        // Tìm tên danh mục tương ứng từ bảng ProductCategory
+        // Tìm thông tin danh mục tương ứng
         const categories = await ProductCategory.find(
             { _id: { $in: productCategories } },
-            { name: 1, _id: 1 } // ✅ Lấy cả ID danh mục
-        );
+            { name: 1, _id: 1 }
+        ).lean();
 
-
-        res.json(categories);
+        res.successResponse(categories, "Fetched active categories successfully");
     } catch (error) {
-        res.status(500).json({ message: "Lỗi server", error });
+        res.errorResponse("Failed to fetch categories", 500, {}, { error: error.message });
     }
 });
 
-
-/* GET all products from database with pagination */
+// GET tất cả sản phẩm không phân trang
 router.get('/all/nopagination', async function (req, res, next) {
     try {
-        const products = await Product.find();
+        const products = await Product.find().lean();
         res.successResponse(products, 'Fetched all products successfully');
     } catch (err) {
         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
     }
 });
-// GET all products with filters and pagination
+
+// GET tất cả sản phẩm có phân trang và lọc
 router.get('/all', async function (req, res) {
     try {
         const { page = 1, limit = 10, category, priceMin, priceMax, search, sortBy } = req.query;
@@ -234,89 +267,184 @@ router.get('/all', async function (req, res) {
         if (search) {
             const searchRegex = new RegExp(search, 'i');
             filters.$or = [
-                { name: searchRegex }, // Tìm theo tên sản phẩm
-                { category: searchRegex } // Tìm theo danh mục sản phẩm
+                { name: searchRegex },
+                { category: searchRegex }
             ];
         }
 
-        // Xác định cách sắp xếp theo giá
+        // Xác định cách sắp xếp
         let sortOption = {};
         if (sortBy === 'priceAsc') {
-            sortOption = { 'variations.salePrice': 1 }; // Sắp xếp giá tăng dần
+            sortOption = { 'variations.salePrice': 1 };
         } else if (sortBy === 'priceDesc') {
-            sortOption = { 'variations.salePrice': -1 }; // Sắp xếp giá giảm dần
+            sortOption = { 'variations.salePrice': -1 };
         }
 
-        const products = await Product.find(filters)
-            .sort(sortOption) // Thêm sắp xếp
-            .limit(parseInt(limit))
-            .skip((parseInt(page) - 1) * parseInt(limit))
-            .exec();
-
+        // Đếm tổng số sản phẩm
         const count = await Product.countDocuments(filters);
 
-        res.successResponse({
-            products
-        }, 'Fetched all products successfully', 200, {
-            totalProducts: count,
-            pageSize: parseInt(limit),
-            currentPage: parseInt(page),
-            totalPages: Math.ceil(count / parseInt(limit))
-        });
+        // Lấy sản phẩm theo trang
+        const products = await Product.find(filters)
+            .sort(sortOption)
+            .limit(parseInt(limit))
+            .skip((parseInt(page) - 1) * parseInt(limit))
+            .lean();
+
+        res.successResponse(
+            { products },
+            'Fetched all products successfully',
+            200,
+            {
+                totalProducts: count,
+                pageSize: parseInt(limit),
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(count / parseInt(limit))
+            }
+        );
     } catch (err) {
         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
     }
 });
 
-
-
+// GET sản phẩm với min và max giá
 router.get('/minmaxprice', async function (req, res, next) {
     try {
-        const products = await Product.find();
-
-        // Thêm min/max salePrice vào mỗi sản phẩm
-        const formattedProducts = products.map(product => {
-            if (!product.variations || product.variations.length === 0) {
-                return { ...product.toObject(), minSalePrice: null, maxSalePrice: null };
+        // Tối ưu: sử dụng aggregate để tính trong database
+        const productsWithPrices = await Product.aggregate([
+            {
+                $addFields: {
+                    minSalePrice: {
+                        $cond: {
+                            if: { $gt: [{ $size: "$variations" }, 0] },
+                            then: { $min: "$variations.salePrice" },
+                            else: null
+                        }
+                    },
+                    maxSalePrice: {
+                        $cond: {
+                            if: { $gt: [{ $size: "$variations" }, 0] },
+                            then: { $max: "$variations.salePrice" },
+                            else: null
+                        }
+                    }
+                }
             }
+        ]);
 
-            const salePrices = product.variations.map(v => v.salePrice);
-            return {
-                ...product.toObject(),
-                minSalePrice: Math.min(...salePrices),
-                maxSalePrice: Math.max(...salePrices),
-            };
-        });
-
-        res.successResponse(formattedProducts, 'Fetched all products successfully');
+        res.successResponse(productsWithPrices, 'Fetched all products with min and max prices successfully');
     } catch (err) {
         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
     }
 });
 
-// Lấy tổng stock của một sản phẩm dựa trên variations
+// GET tổng stock của sản phẩm
 router.get("/stock/:productId", async (req, res) => {
     try {
         const { productId } = req.params;
-        const product = await Product.findById(productId);
 
-        if (!product) {
-            return res.status(404).json({ message: "Sản phẩm không tồn tại" });
+        // Tối ưu: sử dụng aggregate để tính trong database
+        const result = await Product.aggregate([
+            { $match: { _id: productId } },
+            {
+                $project: {
+                    totalStock: { $sum: "$variations.stock" }
+                }
+            }
+        ]);
+
+        if (!result.length) {
+            return res.errorResponse("Sản phẩm không tồn tại", 404);
         }
 
-        const totalStock = product.variations.reduce((sum, variation) => sum + (variation.stock || 0), 0);
-
-        res.json({ productId, totalStock });
+        res.successResponse({
+            productId,
+            totalStock: result[0].totalStock
+        }, "Fetched product stock successfully");
     } catch (error) {
         console.error("Lỗi khi lấy stock sản phẩm:", error);
-        res.status(500).json({ message: "Lỗi server" });
+        res.errorResponse("Failed to fetch product stock", 500, {}, { error: error.message });
     }
 });
 
+// QUAN TRỌNG: Route lấy sản phẩm liên quan PHẢI ĐẶT TRƯỚC route lấy sản phẩm theo ID
+router.get('/related/:productId', async function (req, res, next) {
+    try {
+        const { productId } = req.params;
 
+        // Tìm sản phẩm gốc để lấy category
+        const product = await Product.findById(productId);
 
+        if (!product) {
+            return res.errorResponse('Product not found', 404);
+        }
 
-/* GET product by id */
+        // Tìm số lượng sản phẩm có cùng category
+        const totalRelatedCount = await Product.countDocuments({
+            _id: { $ne: productId },
+            category: product.category,
+            status: "active"
+        });
+
+        // Nếu có ít hơn hoặc bằng 8 sản phẩm, lấy tất cả
+        if (totalRelatedCount <= 8) {
+            const relatedProducts = await Product.find({
+                _id: { $ne: productId },
+                category: product.category,
+                status: "active"
+            })
+                .select('_id name avatar variations')
+                .lean();
+
+            const formattedProducts = formatProductsResponse(relatedProducts);
+
+            return res.successResponse(
+                formattedProducts,
+                'Fetched related products successfully',
+                200,
+                { totalRelated: formattedProducts.length }
+            );
+        }
+
+        // Nếu có nhiều hơn 8 sản phẩm, lấy 8 sản phẩm ngẫu nhiên
+        // Kiểm tra nếu ID là string hay ObjectId
+        const idMatch = typeof productId === 'string' && productId.length === 24
+            ? { $ne: mongoose.Types.ObjectId(productId) }
+            : { $ne: productId };
+
+        const randomRelatedProducts = await Product.aggregate([
+            {
+                $match: {
+                    _id: idMatch,
+                    category: product.category,
+                    status: "active"
+                }
+            },
+            { $sample: { size: 8 } },
+            {
+                $project: {
+                    _id: 1,
+                    name: 1,
+                    avatar: 1,
+                    variations: 1
+                }
+            }
+        ]);
+
+        const formattedProducts = formatProductsResponse(randomRelatedProducts);
+
+        res.successResponse(
+            formattedProducts,
+            'Fetched random related products successfully',
+            200,
+            { totalRelated: formattedProducts.length }
+        );
+    } catch (err) {
+        console.error('Error fetching related products:', err);
+        res.errorResponse('Failed to fetch related products', 500, {}, { error: err.message });
+    }
+});
+
+// ĐẶT CUỐI CÙNG: GET sản phẩm theo ID
 router.get('/:id', async function (req, res, next) {
     try {
         const product = await Product.findById(req.params.id);
@@ -328,66 +456,5 @@ router.get('/:id', async function (req, res, next) {
         res.errorResponse('Failed to fetch product', 500, {}, { error: err.message });
     }
 });
-
-
-// router.put("/update-stock", async (req, res) => {
-//     try {
-//       const { orderId } = req.body;
-
-//       // Tìm đơn hàng trong database
-//       const order = await Order.findById(orderId);
-//       if (!order) {
-//         return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
-//       }
-
-//       // Lặp qua từng sản phẩm trong đơn hàng
-//       for (const item of order.items) {
-//         const { product_id, category, theme, quantity } = item;
-
-//         // Tìm sản phẩm dựa trên ID, category và theme (nếu có)
-//         const product = await Product.findOne({
-//           _id: product_id,
-//           "variations.category": category,
-//           ...(theme && { "variations.theme": theme }),
-//         });
-
-//         if (product) {
-//           // Tìm đúng biến thể có category và theme
-//           const variation = product.variations.find(
-//             (v) => v.category === category && (!theme || v.theme === theme)
-//           );
-
-//           if (variation) {
-//             // Kiểm tra số lượng tồn kho
-//             if (variation.stock >= quantity) {
-//               variation.stock -= quantity; // Trừ số lượng đã đặt
-//               await product.save(); // Lưu lại cập nhật
-//             } else {
-//               return res.status(400).json({
-//                 message: `Sản phẩm ${product.name} (Category: ${category}, Theme: ${
-//                   theme || "Không có"
-//                 }) không đủ hàng.`,
-//               });
-//             }
-//           } else {
-//             return res.status(404).json({
-//               message: `Không tìm thấy biến thể phù hợp cho sản phẩm ${product.name}.`,
-//             });
-//           }
-//         } else {
-//           return res.status(404).json({
-//             message: `Không tìm thấy sản phẩm với ID: ${product_id}.`,
-//           });
-//         }
-//       }
-
-//       res.status(200).json({ message: "Cập nhật số lượng sản phẩm thành công!" });
-//     } catch (error) {
-//       console.error("Lỗi cập nhật kho hàng:", error);
-//       res.status(500).json({ message: "Lỗi server" });
-//     }
-//   });
-
-
 
 module.exports = router;
