@@ -142,10 +142,10 @@ router.put('/update/:id', authenticate, authorize(['admin', 'manager', 'staff'])
             }
         }
 
-        // Don't allow updating certain fields if bill is already paid
-        if (bill.paymentDate && (req.body.amount || req.body.memberID || req.body.description)) {
-            return res.errorResponse('Không thể thay đổi thông tin cơ bản của hóa đơn đã thanh toán', 400);
-        }
+        // // Don't allow updating certain fields if bill is already paid
+        // if (bill.paymentDate && (req.body.amount || req.body.memberID || req.body.description)) {
+        //     return res.errorResponse('Không thể thay đổi thông tin cơ bản của hóa đơn đã thanh toán', 400);
+        // }
 
         const updatedBill = await MemberBill.findByIdAndUpdate(req.params.id, req.body, { new: true });
         res.successResponse(updatedBill, 'Cập nhật hóa đơn thành công');

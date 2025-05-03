@@ -78,7 +78,7 @@ router.post('/create', async function (req, res, next) {
 
 router.post("/create-discount-combo", authenticate, authorize(["admin", "manager"]), async (req, res) => {
     try {
-        const { selectedCombos, discountPercent, validFrom, validUntil,description, usageLimit, code } = req.body;
+        const { selectedCombos, discountPercent, validFrom, validUntil, description, usageLimit, code } = req.body;
 
         // Kiểm tra dữ liệu đầu vào
         if (!selectedCombos || selectedCombos.length === 0) {
@@ -96,7 +96,7 @@ router.post("/create-discount-combo", authenticate, authorize(["admin", "manager
 
         // Chuyển danh sách combo thành danh sách sản phẩm áp dụng
         const applicableProducts = selectedCombos.flatMap(combo => combo.split("-"));
-        
+
         // Tạo ID mới cho khuyến mãi
         const newDiscountId = await generateId('DIS');
 
@@ -151,19 +151,6 @@ router.delete('/delete/:id', async function (req, res, next) {
     }
 });
 
-/* GET discount by id */
-// router.get('/:id', async function (req, res, next) {
-//     try {
-//         const discount = await Discount.findById(req.params.id);
-//         if (!discount) {
-//             return res.errorResponse('Discount not found', 404);
-//         }
-//         res.successResponse(discount, 'Fetched discount successfully');
-//     } catch (err) {
-//         res.errorResponse('Failed to fetch discount', 500, {}, { error: err.message });
-//     }
-// });
-
 router.get('/getVoucher', async (req, res) => {
     try {
         const { code } = req.query;
@@ -211,4 +198,17 @@ router.get('/getVoucher', async (req, res) => {
     }
 });
 
+
+/* GET discount by id */
+router.get('/:id', async function (req, res, next) {
+    try {
+        const discount = await Discount.findById(req.params.id);
+        if (!discount) {
+            return res.errorResponse('Discount not found', 404);
+        }
+        res.successResponse(discount, 'Fetched discount successfully');
+    } catch (err) {
+        res.errorResponse('Failed to fetch discount', 500, {}, { error: err.message });
+    }
+});
 module.exports = router;
