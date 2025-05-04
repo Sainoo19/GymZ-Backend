@@ -75,4 +75,20 @@ router.get("/find", async (req, res) => {
   }
 });
 
+router.get("/:orderId", async (req, res) => {
+  const { orderId } = req.params;
+  try {
+    const payment = await Payment.findOne({ orderId });
+    if (!payment) {
+      return res.status(404).json({ message: "Không tìm thấy payment!" });
+    }
+    return res.status(200).json({ message: "Tìm thấy payment!", payment });
+  } catch (error) {
+    console.error("Lỗi khi lấy payment:", error);
+    return res
+      .status(500)
+      .json({ message: "Lỗi server khi lấy payment", error: error.message });
+  }
+});
+
 module.exports = router;

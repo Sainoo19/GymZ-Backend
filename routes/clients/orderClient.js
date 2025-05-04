@@ -254,5 +254,75 @@ router.get("/orders", authenticate, async (req, res) => {
   }
 });
 
+router.get("/:orderId", authenticate, async (req, res) => {
+  const { orderId } = req.params;
+  try {
+    // Lấy đơn hàng từ database
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng!" });
+    }
+
+    // Tạo một bản sao sâu của đơn hàng để xử lý
+    const orderWithProductDetails = JSON.parse(JSON.stringify(order));
+
+    // Thu thập tất cả product_id từ các items trong đơn hàng
+    const productIds = new Set();
+    orderWithProductDetails.items.forEach(item => {
+      productIds.add(item.product_id);
+    });
+
+    // Truy vấn thông tin chi tiết của tất cả sản phẩm trong một lần truy vấn
+    const products = await Product.find(
+      { _id: { $in: Array.from(productIds) } },
+      { _id: 1, name: 1, images: 1, avatar: 1, variations: 1 }
+    );
+
+    // Tạo map để dễ dàng truy cập thông tin sản phẩm theo ID
+    const productMap = {};
+    products.forEach(product => {
+      productMap[product._id] = {
+        name: product.name,
+        image: product.avatar || (product.images && product.images.length > 0 ? product.images[0] : ""),
+        variations: product.variations
+      };
+    });
+
+    // Thêm thông tin sản phẩm vào các item trong đơn hàng
+    orderWithProductDetails.items.forEach(item => {
+      if (productMap[item.product_id]) {
+        item.productName = productMap[item.product_id].name;
+        item.productImage = productMap[item.product_id].image;
+
+        // Thêm thông tin giá từ variation
+        const variations = productMap[item.product_id].variations;
+        if (variations && variations.length > 0) {
+          const variation = variations.find(v =>
+            v.category === item.category &&
+            (!item.theme || v.theme === item.theme)
+          );
+
+          if (variation) {
+            item.price = variation.salePrice;
+            item.originalPrice = variation.originalPrice;
+          }
+        }
+      } else {
+        item.productName = "Sản phẩm không tồn tại";
+        item.productImage = "";
+      }
+    });
+
+    return res.status(200).json({
+      message: "Lấy đơn hàng thành công",
+      order: orderWithProductDetails
+    });
+  } catch (error) {
+    console.error("Lỗi khi lấy đơn hàng:", error);
+    return res
+      .status(500)
+      .json({ message: "Lỗi server khi lấy đơn hàng", error: error.message });
+  }
+});
 module.exports = router;
 
