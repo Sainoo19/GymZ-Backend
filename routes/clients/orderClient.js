@@ -2,9 +2,11 @@ const express = require("express");
 const mongoose = require("mongoose");
 const Order = require("../../models/orders");
 const Product = require("../../models/products");
-const User = require("../../models/users"); // Đảm bảo đường dẫn đúng
+const { sendOrderConfirmationEmail } = require("../../utils/emailService");
+const User = require("../../models/users");
 const generateId = require("../../utils/generateId");
 const { authenticate } = require("../../middlewares/auth");
+const Payment = require("../../models/payments");
 const Employee = require("../../models/employees");
 const router = express.Router();
 const { db, admin } = require("../../config/firebase"); // Import Firestore
@@ -106,6 +108,11 @@ router.post("/create", authenticate, async (req, res) => {
       // Trừ số lượng kho
       variation.stock -= quantity;
       await product.save({ session });
+
+      // Thêm thông tin tên sản phẩm và hình ảnh vào items
+      item.productName = product.name;
+      item.productImage = product.avatar || (product.images && product.images.length > 0 ? product.images[0] : "");
+      item.price = variation.salePrice;
     }
 
     // Gửi thông báo cho admin, cập nhật Firestore, v.v... (bạn cũng có thể thực hiện trong transaction nếu cần)
@@ -122,6 +129,37 @@ router.post("/create", authenticate, async (req, res) => {
     // Commit transaction nếu tất cả đều thành công
     await session.commitTransaction();
     session.endSession();
+
+    // Tạo payment và gửi email sau khi đã commit transaction thành công
+    try {
+      // Lấy thông tin user để lấy email
+      const user = await User.findById(user_id);
+      if (user && user.email) {
+        // Tạo payment cho đơn hàng
+        const paymentMethod = req.body.paymentMethod || "cod";
+        const newPaymentId = await generateId('PA');
+
+        const newPayment = new Payment({
+          _id: newPaymentId,
+          orderId,
+          user_id,
+          amount: totalPrice + shippingFee,
+          paymentMethod: paymentMethod,
+          status: "Đang xử lý",
+          createdAt: vietnamTime,
+          updatedAt: vietnamTime
+        });
+
+        await newPayment.save();
+
+        // Gửi email xác nhận đơn hàng với chi tiết sản phẩm và thanh toán
+        await sendOrderConfirmationEmail(user.email, newOrder, newPayment);
+        console.log("Đã gửi email xác nhận đơn hàng thành công!");
+      }
+    } catch (emailError) {
+      console.error("Lỗi khi gửi email hoặc tạo payment:", emailError);
+      // Không throw lỗi ở đây để đảm bảo API vẫn trả về thành công
+    }
 
     return res.status(201).json({ message: "Tạo đơn hàng thành công", order: newOrder });
   } catch (error) {
