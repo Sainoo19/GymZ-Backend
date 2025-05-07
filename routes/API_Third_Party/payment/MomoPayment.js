@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const Order = require("../../../models/orders"); // Cập nhật đường dẫn đúng
 const { authenticate } = require("../../../middlewares/auth");
 const { db, admin } = require("../../../config/firebase"); // Import Firestore
+const Payment = require("../../../models/payments");
 
 const router = express.Router();
 var Ngrok_Url = process.env.NGROK_URL;
@@ -11,16 +12,15 @@ var accessKey = process.env.ACCESS_MOMO_KEY;
 var secretKey = process.env.SECRET_MOMO_KEY;
 var URL_FRONTEND = process.env.URL_FRONTEND;
 
-async function saveUserNotificationToFirestore(userId, title, message, orderId) {
+async function saveUserNotificationToFirestore(employeeId, title, message, PaymentId) {
   try {
     await db.collection("notifications").add({
-      user_id: userId,
-      orderId,
+      employeeId,
+      PaymentId,
       title,
       message,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       type: "payment",
-      isRead: false
     });
   } catch (error) {
     console.error("Lỗi ghi thông báo Firestore:", error);
@@ -111,17 +111,16 @@ router.get("/callback", async (req, res) => {
 
     if (resultCode === "0") {
       // 🔍 Lấy đơn hàng từ DB để lấy user_id
-      const order = await Order.findOne({ orderId: finalOrderId });
-      const userId = order?.user_id;
-    
-      if (userId) {
-        await saveUserNotificationToFirestore(
-          userId,
-          "Thanh toán thành công",
-          `Bạn đã thanh toán thành công đơn hàng ${finalOrderId}.`,
-          finalOrderId
-        );
-      }
+          const employees = await Employee.find({ role: "admin" });
+      
+          for (const employee of employees) {
+            await saveNotificationToFirestore(
+              employee._id,
+              "Khách hàng đã thanh toán",
+              `Khách hàng đã thanh toán đơn hàng ${finalOrderId}`,
+              orderId
+            );
+          }
     
       return res.redirect(`${URL_FRONTEND}/order-progress?orderId=${finalOrderId}&paymentMethod=MoMo`);
     }
