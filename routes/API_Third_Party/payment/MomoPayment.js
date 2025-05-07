@@ -5,6 +5,7 @@ const Order = require("../../../models/orders"); // Cập nhật đường dẫn
 const { authenticate } = require("../../../middlewares/auth");
 const { db, admin } = require("../../../config/firebase"); // Import Firestore
 const Payment = require("../../../models/payments");
+const Employee = require("../../../models/employees");
 
 const router = express.Router();
 var Ngrok_Url = process.env.NGROK_URL;
@@ -12,10 +13,10 @@ var accessKey = process.env.ACCESS_MOMO_KEY;
 var secretKey = process.env.SECRET_MOMO_KEY;
 var URL_FRONTEND = process.env.URL_FRONTEND;
 
-async function saveUserNotificationToFirestore(employeeId, title, message, PaymentId) {
+async function saveUserNotificationToFirestore(employee_id, title, message, PaymentId) {
   try {
     await db.collection("notifications").add({
-      employeeId,
+      employee_id,
       PaymentId,
       title,
       message,
@@ -43,7 +44,7 @@ router.post("/momopayment", authenticate, async (req, res) => {
   }
   var orderInfo = "Thanh toán MoMo";
   var partnerCode = "MOMO";
-  var redirectUrl = `${Ngrok_Url}/payment/callback?orderId=${orderId}`;
+  var redirectUrl = `${Ngrok_Url}/payment/callback?orderId=${orderId}selectedMethod=${selectedMethod}`;
   var ipnUrl = `${Ngrok_Url}`;
   var requestType = "payWithMethod";
   var requestId = orderId;
@@ -110,11 +111,23 @@ router.get("/callback", async (req, res) => {
     let finalOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
 
     if (resultCode === "0") {
+
+      try {
+        await axios.post(`${URL_API}paymentClient/create`, {
+          orderId: finalOrderId,
+          paymentMethod: selectedMethod ,
+        });
+        console.log("✅ Đã gọi API tạo payment từ callback");
+      } catch (error) {
+        console.error("❌ Lỗi gọi API tạo payment:", error?.response?.data || error.message);
+        return res.redirect(`${URL_FRONTEND}/payment-error`);
+      }
+
       // 🔍 Lấy đơn hàng từ DB để lấy user_id
           const employees = await Employee.find({ role: "admin" });
       
           for (const employee of employees) {
-            await saveNotificationToFirestore(
+            await saveUserNotificationToFirestore(
               employee._id,
               "Khách hàng đã thanh toán",
               `Khách hàng đã thanh toán đơn hàng ${finalOrderId}`,
