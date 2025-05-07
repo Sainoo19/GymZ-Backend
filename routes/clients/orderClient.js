@@ -24,11 +24,10 @@ async function saveNotificationToFirestore(
       orderId,
       title,
       message,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(), // Thời gian thực
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      type: "order",
     });
-    console.log("Lưu thông báo vào Firestore thành công!");
   } catch (error) {
-    console.error("Lỗi khi lưu thông báo vào Firestore:", error);
   }
 }
 
@@ -121,7 +120,7 @@ router.post("/create", authenticate, async (req, res) => {
       await saveNotificationToFirestore(
         employee._id,
         "Đơn hàng mới",
-        `Có đơn hàng mới trị giá ${formatCurrency(totalPrice)} VND`,
+        `Có đơn hàng mới trị giá ${formatCurrency(totalPrice)} VND với mã đơn hàng ${orderId}`,
         orderId
       );
     }
