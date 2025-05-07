@@ -109,6 +109,7 @@ router.get("/callback", async (req, res) => {
 
     // Nếu orderId là mảng, lấy phần tử đầu tiên
     let finalOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
+    let createdPayment = null;
 
     if (resultCode === "0") {
 
@@ -117,9 +118,11 @@ router.get("/callback", async (req, res) => {
           orderId: finalOrderId,
           paymentMethod: selectedMethod ,
         });
-        console.log("✅ Đã gọi API tạo payment từ callback");
+        createdPayment = response.data.payment;
+
+        console.log("Đã gọi API tạo payment từ callback");
       } catch (error) {
-        console.error("❌ Lỗi gọi API tạo payment:", error?.response?.data || error.message);
+        console.error("Lỗi gọi API tạo payment:", error?.response?.data || error.message);
         return res.redirect(`${URL_FRONTEND}/payment-error`);
       }
 
@@ -130,8 +133,8 @@ router.get("/callback", async (req, res) => {
             await saveUserNotificationToFirestore(
               employee._id,
               "Khách hàng đã thanh toán",
-              `Khách hàng đã thanh toán đơn hàng ${finalOrderId}`,
-              orderId
+              `Khách hàng đã thanh toán đơn hàng ${finalOrderId} với mã hoá đơn ${createdPayment?._id}`,  
+              createdPayment?._id
             );
           }
     
