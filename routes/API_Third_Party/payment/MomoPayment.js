@@ -115,7 +115,7 @@ router.get("/callback", async (req, res) => {
     if (resultCode === "0") {
 
       try {
-        const response = await axios.post(`${URL_API}paymentClient/create`, {
+        const response = await axios.post(`${URL_BACKEND}/paymentClient/create`, {
           orderId: finalOrderId,
           paymentMethod: selectedMethod ,
         });
@@ -124,7 +124,7 @@ router.get("/callback", async (req, res) => {
         console.log("Đã gọi API tạo payment từ callback");
       } catch (error) {
         console.error("Lỗi gọi API tạo payment:", error?.response?.data || error.message);
-        return res.redirect(`${URL_FRONTEND}/payment-error`);
+        return ;
       }
 
       // 🔍 Lấy đơn hàng từ DB để lấy user_id
