@@ -115,7 +115,7 @@ router.get("/callback", async (req, res) => {
     if (resultCode === "0") {
 
       try {
-        await axios.post(`${URL_BACKEND}/paymentClient/create`, {
+        const response = await axios.post(`${URL_API}paymentClient/create`, {
           orderId: finalOrderId,
           paymentMethod: selectedMethod ,
         });
