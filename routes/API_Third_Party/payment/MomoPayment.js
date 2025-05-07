@@ -12,6 +12,7 @@ var Ngrok_Url = process.env.NGROK_URL;
 var accessKey = process.env.ACCESS_MOMO_KEY;
 var secretKey = process.env.SECRET_MOMO_KEY;
 var URL_FRONTEND = process.env.URL_FRONTEND;
+var URL_BACKEND = process.env.URL_BACKEND;
 
 async function saveUserNotificationToFirestore(employee_id, title, message, PaymentId) {
   try {
@@ -44,7 +45,7 @@ router.post("/momopayment", authenticate, async (req, res) => {
   }
   var orderInfo = "Thanh toán MoMo";
   var partnerCode = "MOMO";
-  var redirectUrl = `${Ngrok_Url}/payment/callback?orderId=${orderId}selectedMethod=${selectedMethod}`;
+  var redirectUrl = `${Ngrok_Url}/payment/callback?orderId=${orderId}&selectedMethod=${selectedMethod}`;
   var ipnUrl = `${Ngrok_Url}`;
   var requestType = "payWithMethod";
   var requestId = orderId;
@@ -114,7 +115,7 @@ router.get("/callback", async (req, res) => {
     if (resultCode === "0") {
 
       try {
-        await axios.post(`${URL_API}paymentClient/create`, {
+        await axios.post(`${URL_BACKEND}/paymentClient/create`, {
           orderId: finalOrderId,
           paymentMethod: selectedMethod ,
         });
