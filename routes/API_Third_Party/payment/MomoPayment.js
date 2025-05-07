@@ -3,12 +3,31 @@ const axios = require("axios");
 const crypto = require("crypto");
 const Order = require("../../../models/orders"); // Cập nhật đường dẫn đúng
 const { authenticate } = require("../../../middlewares/auth");
+const { db, admin } = require("../../../config/firebase"); // Import Firestore
 
 const router = express.Router();
 var Ngrok_Url = process.env.NGROK_URL;
 var accessKey = process.env.ACCESS_MOMO_KEY;
 var secretKey = process.env.SECRET_MOMO_KEY;
 var URL_FRONTEND = process.env.URL_FRONTEND;
+
+async function saveUserNotificationToFirestore(userId, title, message, orderId) {
+  try {
+    await db.collection("notifications").add({
+      user_id: userId,
+      orderId,
+      title,
+      message,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      type: "payment",
+      isRead: false
+    });
+  } catch (error) {
+    console.error("Lỗi ghi thông báo Firestore:", error);
+  }
+}
+
+
 router.post("/momopayment", authenticate, async (req, res) => {
   var { amount, orderId, selectedMethod } = req.body; // Lấy số tiền từ request
   if (!amount) {
@@ -91,12 +110,22 @@ router.get("/callback", async (req, res) => {
     let finalOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
 
     if (resultCode === "0") {
-      console.log(`Thanh toán thành công, chuyển hướng về trang đơn hàng ${finalOrderId}`);
+      // 🔍 Lấy đơn hàng từ DB để lấy user_id
+      const order = await Order.findOne({ orderId: finalOrderId });
+      const userId = order?.user_id;
+    
+      if (userId) {
+        await saveUserNotificationToFirestore(
+          userId,
+          "Thanh toán thành công",
+          `Bạn đã thanh toán thành công đơn hàng ${finalOrderId}.`,
+          finalOrderId
+        );
+      }
+    
       return res.redirect(`${URL_FRONTEND}/order-progress?orderId=${finalOrderId}&paymentMethod=MoMo`);
-    } else {
-      console.error("Thanh toán thất bại!");
-      return res.redirect(`${URL_FRONTEND}/payment-failed`);
     }
+    
   } catch (error) {
     console.error("Lỗi xử lý callback thanh toán:", error);
     return res.redirect(`${URL_FRONTEND}/payment-error`);
