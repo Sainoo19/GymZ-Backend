@@ -23,6 +23,7 @@ async function saveUserNotificationToFirestore(employee_id, title, message, Paym
       message,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       type: "payment",
+      isRead: false,
     });
   } catch (error) {
     console.error("Lỗi ghi thông báo Firestore:", error);
