@@ -26,6 +26,7 @@ async function saveNotificationToFirestore(
       message,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       type: "order",
+      isRead: false,
     });
   } catch (error) {
   }
