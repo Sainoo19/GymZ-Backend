@@ -9,7 +9,6 @@ const generateId = require("../../utils/generateId");
 
 
 router.post("/create", async (req, res) => {
-
   const { orderId, paymentMethod } = req.body;
   console.log("orderId received:", orderId);
 
@@ -35,14 +34,20 @@ router.post("/create", async (req, res) => {
     const now = new Date();
     const vietnamTime = new Date(now.getTime() + (7 * 60 * 60 * 1000)); // Add 7 hours for UTC+7
 
-    // Tạo payment mới
+    // Xác định trạng thái thanh toán dựa vào phương thức thanh toán
+    let paymentStatus = "Đang xử lý"; // Mặc định cho COD
+    if (paymentMethod === "MoMo") {
+      paymentStatus = "Đã thanh toán";
+    }
+
+    // Tạo payment mới với trạng thái phù hợp
     const newPayment = new Payment({
       _id: newPaymentId,
       orderId,
       user_id: order.user_id,
       amount: order.totalPrice + order.shippingFee,
       paymentMethod: paymentMethod,
-      status: "Đang xử lý",
+      status: paymentStatus,
       createdAt: vietnamTime,
       updatedAt: vietnamTime
     });

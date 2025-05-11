@@ -136,16 +136,23 @@ router.post("/create", authenticate, async (req, res) => {
       const user = await User.findById(user_id);
       if (user && user.email) {
         // Tạo payment cho đơn hàng
-        const paymentMethod = req.body.paymentMethod || "cod";
+        const paymentMethod = req.body.paymentMethod || "COD";
         const newPaymentId = await generateId('PA');
 
+        // Xác định trạng thái thanh toán dựa vào phương thức thanh toán
+        let paymentStatus = "Đang xử lý"; // Mặc định cho COD
+        if (paymentMethod === "MoMo") {
+          paymentStatus = "Đã thanh toán";
+        }
+
+        // Tạo payment mới với trạng thái phù hợp
         const newPayment = new Payment({
           _id: newPaymentId,
           orderId,
-          user_id,
-          amount: totalPrice + shippingFee,
+          user_id: order.user_id,
+          amount: order.totalPrice + order.shippingFee,
           paymentMethod: paymentMethod,
-          status: "Đang xử lý",
+          status: paymentStatus,
           createdAt: vietnamTime,
           updatedAt: vietnamTime
         });
@@ -225,6 +232,89 @@ router.put("/cancel/:orderId", authenticate, async (req, res) => {
     return res
       .status(500)
       .json({ message: "Lỗi khi hủy đơn hàng", error: error.message });
+  }
+});
+
+router.patch("/cancel/:orderId", authenticate, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { orderId } = req.params;
+
+    // Kiểm tra đơn hàng có tồn tại không
+    const order = await Order.findById(orderId).session(session);
+    if (!order) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        status: 'error',
+        message: "Không tìm thấy đơn hàng"
+      });
+    }
+
+    // // Kiểm tra trạng thái đơn hàng, nếu đã thanh toán thì không hủy
+    // if (order.status !== "Chờ xác nhận" && order.status !== "Đang xử lý") {
+    //   await session.abortTransaction();
+    //   session.endSession();
+    //   return res.status(400).json({
+    //     status: 'error',
+    //     message: "Chỉ có thể hủy đơn hàng ở trạng thái Chờ xác nhận hoặc Đang xử lý"
+    //   });
+    // }
+
+    // Cập nhật trạng thái đơn hàng thành "Đã hủy"
+    order.status = "Đã hủy";
+    order.updatedAt = new Date();
+    await order.save({ session });
+
+    // Cập nhật trạng thái của payment thành "Đã hủy"
+    const payment = await Payment.findOne({ orderId: orderId }).session(session);
+    if (payment) {
+      payment.status = "Đã hủy";
+      payment.updatedAt = new Date();
+      await payment.save({ session });
+    }
+
+    // Hoàn lại stock cho các sản phẩm trong đơn hàng
+    for (const item of order.items) {
+      const { product_id, category, theme, quantity } = item;
+      const product = await Product.findOne({
+        _id: product_id,
+        "variations.category": category,
+        ...(theme && { "variations.theme": theme }),
+      }).session(session);
+
+      if (product) {
+        const variationIndex = product.variations.findIndex(v =>
+          v.category === category && (!theme || v.theme === theme)
+        );
+
+        if (variationIndex !== -1) {
+          product.variations[variationIndex].stock += quantity;
+          await product.save({ session });
+        }
+      }
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Trả về response format theo yêu cầu
+    return res.status(200).json({
+      status: 'success',
+      message: "Đơn hàng đã được hủy thành công",
+      order
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Lỗi khi hủy đơn hàng:", error);
+    return res.status(500).json({
+      status: 'error',
+      message: "Lỗi khi hủy đơn hàng",
+      error: error.message
+    });
   }
 });
 
