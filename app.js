@@ -53,7 +53,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(passport.initialize());
 
 app.use(cors({
-  origin: 'https://gym-z-mu.vercel.app',
+  origin: URL_FRONTEND,
   methods: 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
   allowedHeaders: 'Content-Type, Authorization, cache-control',
   credentials: true
