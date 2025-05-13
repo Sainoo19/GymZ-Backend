@@ -39,7 +39,7 @@ router.post("/momopayment", authenticate, async (req, res) => {
   if (!orderId) {
     return res.status(400).json({ message: "Thiếu Id Order thanh toán" });
   }
-  
+
   var user_id = req.user?.id;
   if (!user_id) {
     return res.status(400).json({ message: "Không tìm thấy user_id" });
@@ -118,31 +118,32 @@ router.get("/callback", async (req, res) => {
       try {
         const response = await axios.post(`${URL_BACKEND}/paymentClient/create`, {
           orderId: finalOrderId,
-          paymentMethod: selectedMethod ,
+          paymentMethod: selectedMethod,
         });
         createdPayment = response.data.payment;
 
         console.log("Đã gọi API tạo payment từ callback");
       } catch (error) {
         console.error("Lỗi gọi API tạo payment:", error?.response?.data || error.message);
-        return ;
+        return;
       }
 
       // 🔍 Lấy đơn hàng từ DB để lấy user_id
-          const employees = await Employee.find({ role: "admin" });
-      
-          for (const employee of employees) {
-            await saveUserNotificationToFirestore(
-              employee._id,
-              "Khách hàng đã thanh toán",
-              `Khách hàng đã thanh toán đơn hàng ${finalOrderId} với mã hoá đơn ${createdPayment?._id}`,  
-              createdPayment?._id
-            );
-          }
-    
+      const employees = await Employee.find({ role: "admin" });
+
+      for (const employee of employees) {
+        await saveUserNotificationToFirestore(
+          employee._id,
+          "Khách hàng đã thanh toán",
+          `Khách hàng đã thanh toán đơn hàng ${finalOrderId} với mã hoá đơn ${createdPayment?._id}`,
+          createdPayment?._id
+        );
+      }
+
       return res.redirect(`${URL_FRONTEND}/order-progress?orderId=${finalOrderId}&paymentMethod=MoMo`);
     }
-    
+
+
   } catch (error) {
     console.error("Lỗi xử lý callback thanh toán:", error);
     return res.redirect(`${URL_FRONTEND}/payment-error`);
