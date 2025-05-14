@@ -183,7 +183,7 @@ router.post("/create", authenticate, async (req, res) => {
           employee._id,
           "Đơn hàng mới",
           `Có đơn hàng mới trị giá ${formatCurrency(
-            totalPrice
+            totalPrice + shippingFee
           )} VND với mã đơn hàng ${orderId}`,
           orderId
         );

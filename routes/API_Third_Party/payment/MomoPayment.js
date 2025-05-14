@@ -34,8 +34,7 @@ async function saveUserNotificationToFirestore(employee_id, orderId,title, messa
 
 router.post("/momopayment", authenticate, async (req, res) => {
   var { amount, orderId, selectedMethod } = req.body; // Lấy số tiền từ request
-  if (!amount) {
-    return res.status(400).json({ message: "Thiếu số tiền thanh toán" });
+  if (!amount) {return res.status(400).json({ message: "Thiếu số tiền thanh toán" });
   }
   if (!orderId) {
     return res.status(400).json({ message: "Thiếu Id Order thanh toán" });
