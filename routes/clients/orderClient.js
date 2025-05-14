@@ -34,9 +34,11 @@ async function saveNotificationToFirestore(
 async function updateOrderStatusInFirestore(orderId) {
   try {
     const notificationsRef = db.collection("notifications");
-    
+
     // 🔍 Tìm các thông báo có chứa orderId
-    const snapshot = await notificationsRef.where("orderId", "==", orderId).get();
+    const snapshot = await notificationsRef
+      .where("orderId", "==", orderId)
+      .get();
 
     if (snapshot.empty) {
       console.warn("⚠️ Không tìm thấy thông báo nào chứa đơn hàng:", orderId);
@@ -48,7 +50,7 @@ async function updateOrderStatusInFirestore(orderId) {
       await doc.ref.update({
         title: "Đơn hàng đã huỷ",
         message: `Khách hàng đã huỷ đơn hàng ${orderId}`,
-        title: "Đã huỷ", 
+        title: "Đã huỷ",
       });
       console.log(`✅ Đã cập nhật thông báo ${doc.id} cho đơn hàng ${orderId}`);
     }
@@ -56,7 +58,6 @@ async function updateOrderStatusInFirestore(orderId) {
     console.error("❌ Lỗi khi cập nhật đơn hàng Firestore:", err);
   }
 }
-
 
 // API tạo đơn hàng
 router.post("/create", authenticate, async (req, res) => {
@@ -367,6 +368,30 @@ router.patch("/cancel/:orderId", authenticate, async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
+    // Nếu là thanh toán bằng MoMo, cập nhật thông báo Firestore
+    if (payment && payment.method === "MoMo") {
+      const notificationsRef = firestore
+        .collection("notifications")
+        .where("orderId", "==", order.orderCode || order._id)
+        .where("type", "==", "payment");
+
+      const snapshot = await notificationsRef.get();
+
+      if (!snapshot.empty) {
+        snapshot.forEach(async (doc) => {
+          await doc.ref.update({
+            message: `Khách hàng đã huỷ đơn hàng ${
+              order.orderCode || order._id
+            } sau khi thanh toán với mã hóa đơn ${payment.paymentId}`,
+            title: "Khách hàng huỷ đơn đã thanh toán",
+            type: "payment", // vẫn giữ nguyên type
+            isRead: false, // reset nếu cần nhân viên xem lại
+            updatedAt: new Date(),
+          });
+        });
+      }
+      console.log("Đã cập nhật thông báo Firestore cho đơn hàng đã huỷ");
+    }
 
     // Trả về response format theo yêu cầu
     return res.status(200).json({

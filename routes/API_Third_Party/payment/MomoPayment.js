@@ -14,11 +14,12 @@ var secretKey = process.env.SECRET_MOMO_KEY;
 var URL_FRONTEND = process.env.URL_FRONTEND;
 var URL_BACKEND = process.env.URL_BACKEND;
 
-async function saveUserNotificationToFirestore(employee_id, title, message, PaymentId) {
+async function saveUserNotificationToFirestore(employee_id, orderId,title, message, PaymentId) {
   try {
     await db.collection("notifications").add({
       employee_id,
       PaymentId,
+      orderId,
       title,
       message,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -134,6 +135,7 @@ router.get("/callback", async (req, res) => {
       for (const employee of employees) {
         await saveUserNotificationToFirestore(
           employee._id,
+          finalOrderId,
           "Khách hàng đã thanh toán",
           `Khách hàng đã thanh toán đơn hàng ${finalOrderId} với mã hoá đơn ${createdPayment?._id}`,
           createdPayment?._id
