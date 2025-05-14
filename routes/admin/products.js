@@ -148,79 +148,7 @@ router.get('/all/cardpage', async function (req, res) {
     }
 });
 
-// ...existing code...
-// // GET all products with filters and pagination (cập nhật thêm min/max price)
-// router.get('/all', async function (req, res) {
-//     try {
-//         const { page = 1, limit = 10, category, priceMin, priceMax, search, sortBy } = req.query;
 
-//         const filters = {};
-
-//         if (category) {
-//             filters.category = category;
-//         }
-
-//         if (priceMin || priceMax) {
-//             filters['variations.salePrice'] = {};
-//             if (priceMin) filters['variations.salePrice'].$gte = parseInt(priceMin);
-//             if (priceMax) filters['variations.salePrice'].$lte = parseInt(priceMax);
-//         }
-
-//         if (search) {
-//             const searchRegex = new RegExp(search, 'i');
-//             filters.$or = [
-//                 { name: searchRegex },
-//                 { category: searchRegex }
-//             ];
-//         }
-
-//         let sortOption = {};
-//         if (sortBy === 'priceAsc') {
-//             sortOption = { 'variations.salePrice': 1 };
-//         } else if (sortBy === 'priceDesc') {
-//             sortOption = { 'variations.salePrice': -1 };
-//         }
-
-//         const products = await Product.find(filters)
-//             .sort(sortOption)
-//             .limit(parseInt(limit))
-//             .skip((parseInt(page) - 1) * parseInt(limit))
-//             .populate('category', 'name')
-//             .exec();
-
-//         const count = await Product.countDocuments(filters);
-
-//         // Lấy giá thấp nhất và cao nhất của mỗi sản phẩm
-//         const productsWithPriceRange = products.map(product => {
-//             if (!product.variations || product.variations.length === 0) {
-//                 return {
-//                     ...product.toObject(),
-//                     minPrice: 0,
-//                     maxPrice: 0
-//                 };
-//             }
-//             const prices = product.variations.map(v => v.salePrice);
-//             const minPrice = Math.min(...prices);
-//             const maxPrice = Math.max(...prices);
-//             return {
-//                 ...product.toObject(),
-//                 minPrice,
-//                 maxPrice
-//             };
-//         });
-
-//         res.successResponse({
-//             products: productsWithPriceRange
-//         }, 'Fetched all products successfully', 200, {
-//             totalProducts: count,
-//             pageSize: parseInt(limit),
-//             currentPage: parseInt(page),
-//             totalPages: Math.ceil(count / parseInt(limit))
-//         });
-//     } catch (err) {
-//         res.errorResponse('Failed to fetch products', 500, {}, { error: err.message });
-//     }
-// });
 
 router.get('/minmaxprice/:productId', async function (req, res) {
     try {
@@ -366,13 +294,15 @@ router.put("/update-stock/:productId", async (req, res) => {
         const { productId } = req.params;
         const { variations } = req.body;
 
-        if (!variations || !Array.isArray(variations) || variations.length === 0) {
-            return res.status(400).json({ message: "Dữ liệu variations không hợp lệ!" });
-        }
-
+        // Check if product exists first
         const product = await Product.findById(productId);
         if (!product) {
-            return res.status(404).json({ message: "Sản phẩm không tồn tại!" });
+            return res.errorResponse("Sản phẩm không tồn tại!", 404);  // Return 404 before checking variations
+        }
+
+        // Then check if variations data is valid
+        if (!variations || !Array.isArray(variations)) {
+            return res.errorResponse("Dữ liệu variations không hợp lệ!", 400);
         }
 
         product.variations.forEach((variation) => {
@@ -391,14 +321,10 @@ router.put("/update-stock/:productId", async (req, res) => {
         await product.save();
         console.log("Cập nhật thành công:", product.variations);
 
-        res.json({
-            message: "Cập nhật stock thành công",
-            status: "success",
-            data: product
-        });
+        res.successResponse(product, "Cập nhật stock thành công");
     } catch (error) {
         console.error("Lỗi cập nhật stock:", error);
-        res.status(500).json({ message: "Lỗi server", error: error.message });
+        res.errorResponse("Lỗi server", 500, {}, { error: error.message });
     }
 });
 module.exports = router;

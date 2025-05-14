@@ -3,12 +3,34 @@ const axios = require("axios");
 const crypto = require("crypto");
 const Order = require("../../../models/orders"); // Cập nhật đường dẫn đúng
 const { authenticate } = require("../../../middlewares/auth");
+const { db, admin } = require("../../../config/firebase"); // Import Firestore
+const Payment = require("../../../models/payments");
+const Employee = require("../../../models/employees");
 
 const router = express.Router();
 var Ngrok_Url = process.env.NGROK_URL;
 var accessKey = process.env.ACCESS_MOMO_KEY;
 var secretKey = process.env.SECRET_MOMO_KEY;
 var URL_FRONTEND = process.env.URL_FRONTEND;
+var URL_BACKEND = process.env.URL_BACKEND;
+
+async function saveUserNotificationToFirestore(employee_id, title, message, PaymentId) {
+  try {
+    await db.collection("notifications").add({
+      employee_id,
+      PaymentId,
+      title,
+      message,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      type: "payment",
+      isRead: false,
+    });
+  } catch (error) {
+    console.error("Lỗi ghi thông báo Firestore:", error);
+  }
+}
+
+
 router.post("/momopayment", authenticate, async (req, res) => {
   var { amount, orderId, selectedMethod } = req.body; // Lấy số tiền từ request
   if (!amount) {
@@ -17,14 +39,14 @@ router.post("/momopayment", authenticate, async (req, res) => {
   if (!orderId) {
     return res.status(400).json({ message: "Thiếu Id Order thanh toán" });
   }
-  
+
   var user_id = req.user?.id;
   if (!user_id) {
     return res.status(400).json({ message: "Không tìm thấy user_id" });
   }
   var orderInfo = "Thanh toán MoMo";
   var partnerCode = "MOMO";
-  var redirectUrl = `${Ngrok_Url}/payment/callback?orderId=${orderId}`;
+  var redirectUrl = `${Ngrok_Url}/payment/callback?orderId=${orderId}&selectedMethod=${selectedMethod}`;
   var ipnUrl = `${Ngrok_Url}`;
   var requestType = "payWithMethod";
   var requestId = orderId;
@@ -89,14 +111,39 @@ router.get("/callback", async (req, res) => {
 
     // Nếu orderId là mảng, lấy phần tử đầu tiên
     let finalOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
+    let createdPayment = null;
 
     if (resultCode === "0") {
-      console.log(`Thanh toán thành công, chuyển hướng về trang đơn hàng ${finalOrderId}`);
+
+      try {
+        const response = await axios.post(`${URL_BACKEND}/paymentClient/create`, {
+          orderId: finalOrderId,
+          paymentMethod: selectedMethod,
+        });
+        createdPayment = response.data.payment;
+
+        console.log("Đã gọi API tạo payment từ callback");
+      } catch (error) {
+        console.error("Lỗi gọi API tạo payment:", error?.response?.data || error.message);
+        return;
+      }
+
+      // 🔍 Lấy đơn hàng từ DB để lấy user_id
+      const employees = await Employee.find({ role: "admin" });
+
+      for (const employee of employees) {
+        await saveUserNotificationToFirestore(
+          employee._id,
+          "Khách hàng đã thanh toán",
+          `Khách hàng đã thanh toán đơn hàng ${finalOrderId} với mã hoá đơn ${createdPayment?._id}`,
+          createdPayment?._id
+        );
+      }
+
       return res.redirect(`${URL_FRONTEND}/order-progress?orderId=${finalOrderId}&paymentMethod=MoMo`);
-    } else {
-      console.error("Thanh toán thất bại!");
-      return res.redirect(`${URL_FRONTEND}/payment-failed`);
     }
+
+
   } catch (error) {
     console.error("Lỗi xử lý callback thanh toán:", error);
     return res.redirect(`${URL_FRONTEND}/payment-error`);

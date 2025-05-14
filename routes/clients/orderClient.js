@@ -24,11 +24,11 @@ async function saveNotificationToFirestore(
       orderId,
       title,
       message,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(), // Thời gian thực
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      type: "order",
+      isRead: false,
     });
-    console.log("Lưu thông báo vào Firestore thành công!");
   } catch (error) {
-    console.error("Lỗi khi lưu thông báo vào Firestore:", error);
   }
 }
 
@@ -115,21 +115,26 @@ router.post("/create", authenticate, async (req, res) => {
       item.price = variation.salePrice;
     }
 
-    // Gửi thông báo cho admin, cập nhật Firestore, v.v... (bạn cũng có thể thực hiện trong transaction nếu cần)
-    const employees = await Employee.find({ role: "admin" }).session(session);
-    for (const employee of employees) {
-      await saveNotificationToFirestore(
-        employee._id,
-        "Đơn hàng mới",
-        `Có đơn hàng mới trị giá ${formatCurrency(totalPrice)} VND`,
-        orderId
-      );
-    }
+
 
     // Commit transaction nếu tất cả đều thành công
     await session.commitTransaction();
     session.endSession();
-
+    
+    try {
+      const employees = await Employee.find({ role: "admin" });
+      for (const employee of employees) {
+        await saveNotificationToFirestore(
+          employee._id,
+          "Đơn hàng mới",
+          `Có đơn hàng mới trị giá ${formatCurrency(totalPrice)} VND với mã đơn hàng ${orderId}`,
+          orderId
+        );
+      }
+    } catch (notifyError) {
+      console.error("Lỗi khi gửi thông báo admin:", notifyError);
+      // Không throw để không ảnh hưởng đến phản hồi người dùng
+    }
     // Tạo payment và gửi email sau khi đã commit transaction thành công
     try {
       // Lấy thông tin user để lấy email
