@@ -152,51 +152,85 @@ router.delete('/delete/:id', async function (req, res, next) {
 });
 
 router.get('/getVoucher', async (req, res) => {
-    try {
-        const { code } = req.query;
-        if (!code) {
-            return res.status(400).json({
-                status: "error",
-                code: 400,
-                message: "Code is required"
-            });
-        }
+  try {
+    const { code, productIds } = req.query;
+    console.log("Received productIds:", productIds);
 
-        // Lấy ngày hiện tại
-        const today = new Date();
-
-        // Tìm voucher hợp lệ
-        const discount = await Discount.findOne({
-            code,
-            status: 'active',
-            validFrom: { $lte: today },  // Ngày bắt đầu <= hôm nay
-            validUntil: { $gte: today }, // Ngày hết hạn >= hôm nay
-            usageLimit: { $gt: 0 }       // Số lần sử dụng còn > 0
-        }).select('-__v'); // Loại bỏ trường __v để gọn response
-
-        if (!discount) {
-            return res.status(404).json({
-                status: "error",
-                code: 404,
-                message: "Discount not found, expired, or usage limit reached"
-            });
-        }
-
-        res.status(200).json({
-            status: "success",
-            code: 200,
-            message: "Discount retrieved successfully",
-            data: discount
-        });
-    } catch (err) {
-        res.status(500).json({
-            status: "error",
-            code: 500,
-            message: "Internal Server Error",
-            error: err.message
-        });
+    if (!code || !productIds) {
+      return res.status(400).json({
+        status: "error",
+        code: 400,
+        message: "Code and productIds are required"
+      });
     }
+
+    const today = new Date();
+
+    const discount = await Discount.findOne({
+      code,
+      status: 'active',
+      validFrom: { $lte: today },
+      validUntil: { $gte: today },
+      usageLimit: { $gt: 0 }
+    }).select('-__v');
+
+    if (!discount) {
+      return res.status(404).json({
+        status: "error",
+        code: 404,
+        message: "Discount not found, expired, or usage limit reached"
+      });
+    }
+
+    // Xử lý productIds nếu là chuỗi (có dấu phẩy) hoặc mảng
+    let selectedProducts = [];
+    if (typeof productIds === 'string') {
+      selectedProducts = productIds.split(',').map(id => id.trim());
+    } else if (Array.isArray(productIds)) {
+      selectedProducts = productIds;
+    }
+
+    console.log('Selected Products:', selectedProducts);
+    console.log('Applicable Products:', discount.applicableProducts);
+
+    // Tìm các sản phẩm hợp lệ
+    const validProductIds = selectedProducts.filter(pid => {
+      console.log(`Checking if ${pid} is in applicableProducts: ${discount.applicableProducts.includes(pid)}`);
+      return discount.applicableProducts.includes(pid);
+    });
+
+    console.log('Valid Products:', validProductIds);
+
+    // Nếu không có sản phẩm nào hợp lệ
+    if (validProductIds.length === 0) {
+      return res.status(400).json({
+        status: "error",
+        code: 400,
+        message: "Không có sản phẩm nào trong danh sách được áp dụng mã giảm giá"
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      code: 200,
+      message: "Discount retrieved successfully",
+      data: {
+        ...discount.toObject(), // convert Mongoose model to plain object
+        applicableProducts: validProductIds // chỉ trả về sản phẩm áp dụng được
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      code: 500,
+      message: "Internal Server Error",
+      error: err.message
+    });
+  }
 });
+
+
+
 
 
 /* GET discount by id */
