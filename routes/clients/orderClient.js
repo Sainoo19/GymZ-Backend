@@ -368,6 +368,7 @@ router.patch("/cancel/:orderId", authenticate, async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
+    
     // Nếu là thanh toán bằng MoMo, cập nhật thông báo Firestore
     if (payment && payment.method === "MoMo") {
       const notificationsRef = firestore
