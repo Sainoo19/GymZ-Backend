@@ -38,7 +38,6 @@ router.get(
       let totalPairs = 0;
 
       orders.forEach((order) => {
-        console.log("Items in order:", JSON.stringify(order.items, null, 2)); // Log the detailed structure of items
 
         // Kiểm tra nếu đơn hàng có sản phẩm bị trùng ID thì bỏ qua đơn hàng đó
         const productIds = order.items.map((item) => item.product_id);

@@ -28,29 +28,80 @@ async function saveNotificationToFirestore(
       type: "order",
       isRead: false,
     });
-  } catch (error) {
+  } catch (error) {}
+}
+
+async function updateOrderStatusInFirestore(orderId) {
+  try {
+    const notificationsRef = db.collection("notifications");
+
+    // 🔍 Tìm các thông báo có chứa orderId
+    const snapshot = await notificationsRef
+      .where("orderId", "==", orderId)
+      .get();
+
+    if (snapshot.empty) {
+      console.warn("⚠️ Không tìm thấy thông báo nào chứa đơn hàng:", orderId);
+      return;
+    }
+
+    // 📝 Cập nhật tất cả thông báo liên quan
+    for (const doc of snapshot.docs) {
+      await doc.ref.update({
+        title: "Đơn hàng đã huỷ",
+        message: `Khách hàng đã huỷ đơn hàng ${orderId}`,
+        title: "Đã huỷ",
+      });
+      console.log(`✅ Đã cập nhật thông báo ${doc.id} cho đơn hàng ${orderId}`);
+    }
+  } catch (err) {
+    console.error("❌ Lỗi khi cập nhật đơn hàng Firestore:", err);
   }
 }
 
 // API tạo đơn hàng
 router.post("/create", authenticate, async (req, res) => {
-
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const {
-      user_id, totalPrice, status, deliveryAddress, createdAt, updatedAt, shippingFee, items
+      user_id,
+      totalPrice,
+      status,
+      deliveryAddress,
+      createdAt,
+      updatedAt,
+      shippingFee,
+      items,
     } = req.body;
 
     // Kiểm tra thông tin bắt buộc...
-    if (!user_id || !totalPrice || !status || !deliveryAddress || !items || !Array.isArray(items) || items.length === 0) {
-      throw new Error("Thiếu thông tin đơn hàng hoặc danh sách sản phẩm không hợp lệ");
+    if (
+      !user_id ||
+      !totalPrice ||
+      !status ||
+      !deliveryAddress ||
+      !items ||
+      !Array.isArray(items) ||
+      items.length === 0
+    ) {
+      throw new Error(
+        "Thiếu thông tin đơn hàng hoặc danh sách sản phẩm không hợp lệ"
+      );
     }
 
     // Kiểm tra các trường của deliveryAddress...
-    const { provinceName, districtName, wardName, street, name, phone } = deliveryAddress;
-    if (!provinceName || !districtName || !wardName || !street || !name || !phone) {
+    const { provinceName, districtName, wardName, street, name, phone } =
+      deliveryAddress;
+    if (
+      !provinceName ||
+      !districtName ||
+      !wardName ||
+      !street ||
+      !name ||
+      !phone
+    ) {
       throw new Error("Thiếu thông tin địa chỉ giao hàng");
     }
 
@@ -58,7 +109,7 @@ router.post("/create", authenticate, async (req, res) => {
     const orderId = await generateId("ORD");
 
     const now = new Date();
-    const vietnamTime = new Date(now.getTime() + (7 * 60 * 60 * 1000)); // Add 7 hours for UTC+7
+    const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000); // Add 7 hours for UTC+7
 
     // Tạo đơn hàng mới
     const newOrder = new Order({
@@ -96,9 +147,13 @@ router.post("/create", authenticate, async (req, res) => {
         throw new Error(`Không tìm thấy sản phẩm với ID: ${product_id}`);
       }
 
-      const variation = product.variations.find(v => v.category === category && (!theme || v.theme === theme));
+      const variation = product.variations.find(
+        (v) => v.category === category && (!theme || v.theme === theme)
+      );
       if (!variation) {
-        throw new Error(`Không tìm thấy biến thể phù hợp cho sản phẩm ${product.name}.`);
+        throw new Error(
+          `Không tìm thấy biến thể phù hợp cho sản phẩm ${product.name}.`
+        );
       }
 
       if (variation.stock < quantity) {
@@ -111,23 +166,25 @@ router.post("/create", authenticate, async (req, res) => {
 
       // Thêm thông tin tên sản phẩm và hình ảnh vào items
       item.productName = product.name;
-      item.productImage = product.avatar || (product.images && product.images.length > 0 ? product.images[0] : "");
+      item.productImage =
+        product.avatar ||
+        (product.images && product.images.length > 0 ? product.images[0] : "");
       item.price = variation.salePrice;
     }
-
-
 
     // Commit transaction nếu tất cả đều thành công
     await session.commitTransaction();
     session.endSession();
-    
+
     try {
       const employees = await Employee.find({ role: "admin" });
       for (const employee of employees) {
         await saveNotificationToFirestore(
           employee._id,
           "Đơn hàng mới",
-          `Có đơn hàng mới trị giá ${formatCurrency(totalPrice)} VND với mã đơn hàng ${orderId}`,
+          `Có đơn hàng mới trị giá ${formatCurrency(
+            totalPrice + shippingFee
+          )} VND với mã đơn hàng ${orderId}`,
           orderId
         );
       }
@@ -142,7 +199,7 @@ router.post("/create", authenticate, async (req, res) => {
       if (user && user.email) {
         // Tạo payment cho đơn hàng
         const paymentMethod = req.body.paymentMethod || "COD";
-        const newPaymentId = await generateId('PA');
+        const newPaymentId = await generateId("PA");
 
         // Xác định trạng thái thanh toán dựa vào phương thức thanh toán
         let paymentStatus = "Đang xử lý"; // Mặc định cho COD
@@ -159,7 +216,7 @@ router.post("/create", authenticate, async (req, res) => {
           paymentMethod: paymentMethod,
           status: paymentStatus,
           createdAt: vietnamTime,
-          updatedAt: vietnamTime
+          updatedAt: vietnamTime,
         });
 
         await newPayment.save();
@@ -173,11 +230,15 @@ router.post("/create", authenticate, async (req, res) => {
       // Không throw lỗi ở đây để đảm bảo API vẫn trả về thành công
     }
 
-    return res.status(201).json({ message: "Tạo đơn hàng thành công", order: newOrder });
+    return res
+      .status(201)
+      .json({ message: "Tạo đơn hàng thành công", order: newOrder });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    return res.status(500).json({ message: "Lỗi khi tạo đơn hàng", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Lỗi khi tạo đơn hàng", error: error.message });
   }
 });
 
@@ -253,8 +314,8 @@ router.patch("/cancel/:orderId", authenticate, async (req, res) => {
       await session.abortTransaction();
       session.endSession();
       return res.status(404).json({
-        status: 'error',
-        message: "Không tìm thấy đơn hàng"
+        status: "error",
+        message: "Không tìm thấy đơn hàng",
       });
     }
 
@@ -274,7 +335,9 @@ router.patch("/cancel/:orderId", authenticate, async (req, res) => {
     await order.save({ session });
 
     // Cập nhật trạng thái của payment thành "Đã hủy"
-    const payment = await Payment.findOne({ orderId: orderId }).session(session);
+    const payment = await Payment.findOne({ orderId: orderId }).session(
+      session
+    );
     if (payment) {
       payment.status = "Đã hủy";
       payment.updatedAt = new Date();
@@ -291,8 +354,8 @@ router.patch("/cancel/:orderId", authenticate, async (req, res) => {
       }).session(session);
 
       if (product) {
-        const variationIndex = product.variations.findIndex(v =>
-          v.category === category && (!theme || v.theme === theme)
+        const variationIndex = product.variations.findIndex(
+          (v) => v.category === category && (!theme || v.theme === theme)
         );
 
         if (variationIndex !== -1) {
@@ -301,28 +364,53 @@ router.patch("/cancel/:orderId", authenticate, async (req, res) => {
         }
       }
     }
+    await updateOrderStatusInFirestore(orderId, "Đã hủy");
 
     await session.commitTransaction();
     session.endSession();
+    
+    // Nếu là thanh toán bằng MoMo, cập nhật thông báo Firestore
+    if (payment && payment.method === "MoMo") {
+      const notificationsRef = firestore
+        .collection("notifications")
+        .where("orderId", "==", order.orderCode || order._id)
+        .where("type", "==", "payment");
+
+      const snapshot = await notificationsRef.get();
+
+      if (!snapshot.empty) {
+        snapshot.forEach(async (doc) => {
+          await doc.ref.update({
+            message: `Khách hàng đã huỷ đơn hàng ${
+              order.orderCode || order._id
+            } sau khi thanh toán với mã hóa đơn ${payment.paymentId}`,
+            title: "Khách hàng huỷ đơn đã thanh toán",
+            type: "payment", // vẫn giữ nguyên type
+            isRead: false, // reset nếu cần nhân viên xem lại
+            updatedAt: new Date(),
+          });
+        });
+      }
+      console.log("Đã cập nhật thông báo Firestore cho đơn hàng đã huỷ");
+    }
 
     // Trả về response format theo yêu cầu
     return res.status(200).json({
-      status: 'success',
+      status: "success",
       message: "Đơn hàng đã được hủy thành công",
-      order
+      order,
     });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
     console.error("Lỗi khi hủy đơn hàng:", error);
     return res.status(500).json({
-      status: 'error',
+      status: "error",
       message: "Lỗi khi hủy đơn hàng",
-      error: error.message
+      error: error.message,
     });
   }
 });
-
 
 // API lấy đơn hàng của người dùng với chi tiết sản phẩm
 router.get("/orders", authenticate, async (req, res) => {
@@ -330,36 +418,43 @@ router.get("/orders", authenticate, async (req, res) => {
     const userId = req.user.id; // Lấy user_id từ middleware authenticate
 
     // Lấy đơn hàng từ database
-    const orders = await Order.find({ user_id: userId })
-      .sort({ createdAt: -1 }); // Sắp xếp theo thời gian tạo, mới nhất trước
+    const orders = await Order.find({ user_id: userId }).sort({
+      createdAt: -1,
+    }); // Sắp xếp theo thời gian tạo, mới nhất trước
 
     // Tạo một bản sao sâu của đơn hàng để xử lý
     const ordersWithProductDetails = JSON.parse(JSON.stringify(orders));
 
     // Lấy tất cả product_id từ tất cả đơn hàng
     const productIds = new Set();
-    ordersWithProductDetails.forEach(order => {
-      order.items.forEach(item => {
+    ordersWithProductDetails.forEach((order) => {
+      order.items.forEach((item) => {
         productIds.add(item.product_id);
       });
     });
 
     // Lấy thông tin chi tiết của tất cả sản phẩm trong một lần truy vấn
-    const products = await Product.find({ _id: { $in: Array.from(productIds) } },
-      { _id: 1, name: 1, images: 1, avatar: 1 });
+    const products = await Product.find(
+      { _id: { $in: Array.from(productIds) } },
+      { _id: 1, name: 1, images: 1, avatar: 1 }
+    );
 
     // Tạo map để dễ dàng truy cập thông tin sản phẩm theo ID
     const productMap = {};
-    products.forEach(product => {
+    products.forEach((product) => {
       productMap[product._id] = {
         name: product.name,
-        image: product.avatar || (product.images && product.images.length > 0 ? product.images[0] : "")
+        image:
+          product.avatar ||
+          (product.images && product.images.length > 0
+            ? product.images[0]
+            : ""),
       };
     });
 
     // Thêm thông tin sản phẩm vào các item trong đơn hàng
-    ordersWithProductDetails.forEach(order => {
-      order.items.forEach(item => {
+    ordersWithProductDetails.forEach((order) => {
+      order.items.forEach((item) => {
         if (productMap[item.product_id]) {
           item.productName = productMap[item.product_id].name;
           item.productImage = productMap[item.product_id].image;
@@ -401,7 +496,7 @@ router.get("/:orderId", authenticate, async (req, res) => {
 
     // Thu thập tất cả product_id từ các items trong đơn hàng
     const productIds = new Set();
-    orderWithProductDetails.items.forEach(item => {
+    orderWithProductDetails.items.forEach((item) => {
       productIds.add(item.product_id);
     });
 
@@ -413,16 +508,20 @@ router.get("/:orderId", authenticate, async (req, res) => {
 
     // Tạo map để dễ dàng truy cập thông tin sản phẩm theo ID
     const productMap = {};
-    products.forEach(product => {
+    products.forEach((product) => {
       productMap[product._id] = {
         name: product.name,
-        image: product.avatar || (product.images && product.images.length > 0 ? product.images[0] : ""),
-        variations: product.variations
+        image:
+          product.avatar ||
+          (product.images && product.images.length > 0
+            ? product.images[0]
+            : ""),
+        variations: product.variations,
       };
     });
 
     // Thêm thông tin sản phẩm vào các item trong đơn hàng
-    orderWithProductDetails.items.forEach(item => {
+    orderWithProductDetails.items.forEach((item) => {
       if (productMap[item.product_id]) {
         item.productName = productMap[item.product_id].name;
         item.productImage = productMap[item.product_id].image;
@@ -430,9 +529,10 @@ router.get("/:orderId", authenticate, async (req, res) => {
         // Thêm thông tin giá từ variation
         const variations = productMap[item.product_id].variations;
         if (variations && variations.length > 0) {
-          const variation = variations.find(v =>
-            v.category === item.category &&
-            (!item.theme || v.theme === item.theme)
+          const variation = variations.find(
+            (v) =>
+              v.category === item.category &&
+              (!item.theme || v.theme === item.theme)
           );
 
           if (variation) {
@@ -448,7 +548,7 @@ router.get("/:orderId", authenticate, async (req, res) => {
 
     return res.status(200).json({
       message: "Lấy đơn hàng thành công",
-      order: orderWithProductDetails
+      order: orderWithProductDetails,
     });
   } catch (error) {
     console.error("Lỗi khi lấy đơn hàng:", error);
@@ -458,4 +558,3 @@ router.get("/:orderId", authenticate, async (req, res) => {
   }
 });
 module.exports = router;
-
