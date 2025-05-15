@@ -3,6 +3,7 @@ const router = express.Router();
 const Payment = require("../../models/payments");
 const Order = require("../../models/orders");
 const User = require("../../models/users");
+const Product = require("../../models/products");
 const { sendOrderConfirmationEmail } = require("../../utils/emailService");
 const mongoose = require("mongoose");
 const generateId = require("../../utils/generateId");
