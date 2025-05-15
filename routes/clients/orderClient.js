@@ -28,7 +28,7 @@ async function saveNotificationToFirestore(
       type: "order",
       isRead: false,
     });
-  } catch (error) {}
+  } catch (error) { }
 }
 
 async function updateOrderStatusInFirestore(orderId) {
@@ -109,7 +109,7 @@ router.post("/create", authenticate, async (req, res) => {
     const orderId = await generateId("ORD");
 
     const now = new Date();
-    const vietnamTime = new Date(now.getTime() + 7 * 60 * 60 * 1000); // Add 7 hours for UTC+7
+    const vietnamTime = new Date(now.getTime()); // Add 7 hours for UTC+7
 
     // Tạo đơn hàng mới
     const newOrder = new Order({
@@ -368,7 +368,7 @@ router.patch("/cancel/:orderId", authenticate, async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
-    
+
     // Nếu là thanh toán bằng MoMo, cập nhật thông báo Firestore
     if (payment && payment.method === "MoMo") {
       const notificationsRef = firestore
@@ -381,9 +381,8 @@ router.patch("/cancel/:orderId", authenticate, async (req, res) => {
       if (!snapshot.empty) {
         snapshot.forEach(async (doc) => {
           await doc.ref.update({
-            message: `Khách hàng đã huỷ đơn hàng ${
-              order.orderCode || order._id
-            } sau khi thanh toán với mã hóa đơn ${payment.paymentId}`,
+            message: `Khách hàng đã huỷ đơn hàng ${order.orderCode || order._id
+              } sau khi thanh toán với mã hóa đơn ${payment.paymentId}`,
             title: "Khách hàng huỷ đơn đã thanh toán",
             type: "payment", // vẫn giữ nguyên type
             isRead: false, // reset nếu cần nhân viên xem lại

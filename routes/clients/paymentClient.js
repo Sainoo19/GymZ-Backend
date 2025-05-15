@@ -33,7 +33,7 @@ router.post("/create", async (req, res) => {
     }
     const newPaymentId = await generateId('PA');
     const now = new Date();
-    const vietnamTime = new Date(now.getTime() + (7 * 60 * 60 * 1000)); // Add 7 hours for UTC+7
+    const vietnamTime = new Date(now.getTime()); // Add 7 hours for UTC+7
 
     // Xác định trạng thái thanh toán dựa vào phương thức thanh toán
     let paymentStatus = "Đang xử lý"; // Mặc định cho COD
